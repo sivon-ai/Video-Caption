@@ -36,14 +36,14 @@ class Settings:
     )
     vision_model: str = field(default_factory=lambda: os.getenv("VISION_MODEL", ""))
     text_model: str = field(default_factory=lambda: os.getenv("TEXT_MODEL", ""))
-    temperature: float = field(default_factory=lambda: float(os.getenv("TEMPERATURE", "0.4")))
-    max_tokens: int = field(default_factory=lambda: int(os.getenv("MAX_TOKENS", "900")))
+    temperature: float = field(default_factory=lambda: float(os.getenv("TEMPERATURE", "0.3")))
+    max_tokens: int = field(default_factory=lambda: int(os.getenv("MAX_TOKENS", "1800")))
     request_timeout: int = field(default_factory=lambda: int(os.getenv("REQUEST_TIMEOUT", "90")))
     max_retries: int = field(default_factory=lambda: int(os.getenv("MAX_RETRIES", "3")))
     max_workers: int = field(default_factory=lambda: int(os.getenv("MAX_WORKERS", "1")))
 
-    min_frames: int = field(default_factory=lambda: int(os.getenv("MIN_FRAMES", "8")))
-    max_frames: int = field(default_factory=lambda: int(os.getenv("MAX_FRAMES", "12")))
+    min_frames: int = field(default_factory=lambda: int(os.getenv("MIN_FRAMES", "14")))
+    max_frames: int = field(default_factory=lambda: int(os.getenv("MAX_FRAMES", "20")))
     jpeg_quality: int = field(default_factory=lambda: int(os.getenv("JPEG_QUALITY", "82")))
     max_upload_mb: int = field(default_factory=lambda: int(os.getenv("MAX_UPLOAD_MB", "500")))
     max_url_download_mb: int = field(

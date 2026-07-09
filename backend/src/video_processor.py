@@ -36,7 +36,11 @@ class VideoProcessor:
         with timer() as elapsed:
             frames = extract_representative_frames(video_path)
             description, neutral, timeline, vision_meta = self.caption_generator.generate(video_path, frames)
-            captions, style_meta = self.style_generator.generate(neutral)
+            captions, style_meta = self.style_generator.generate(
+                neutral,
+                factual_description=description,
+                scene_timeline=timeline,
+            )
 
             token_usage = {
                 "vision": vision_meta.get("usage", {}),

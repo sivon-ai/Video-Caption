@@ -22,13 +22,15 @@ class FrameExtractionError(RuntimeError):
 
 
 def _target_frame_count(duration_seconds: float) -> int:
+    min_frames = max(settings.min_frames, 12)
+    max_frames = max(settings.max_frames, min_frames)
     if duration_seconds <= 0:
-        return settings.min_frames
-    if duration_seconds < 8:
-        return min(settings.min_frames, 6)
+        return min_frames
+    if duration_seconds < 10:
+        return min(max_frames, max(min_frames, 14))
     if duration_seconds > 45:
-        return settings.max_frames
-    return max(settings.min_frames, min(settings.max_frames, round(duration_seconds / 4)))
+        return max_frames
+    return max(min_frames, min(max_frames, round(duration_seconds / 3)))
 
 
 def _average_hash(frame: np.ndarray, hash_size: int = 8) -> int:
@@ -95,6 +97,17 @@ def extract_representative_frames(video_path: Path) -> list[FrameSample]:
         if not samples and fallback_frames:
             index, timestamp, frame = fallback_frames[0]
             samples.append(FrameSample(index, timestamp, _encode_frame(frame)))
+
+        minimum_samples = min(requested, max(10, settings.min_frames))
+        if len(samples) < minimum_samples:
+            used_indexes = {sample.index for sample in samples}
+            for index, timestamp, frame in fallback_frames:
+                if index in used_indexes:
+                    continue
+                samples.append(FrameSample(index, timestamp, _encode_frame(frame)))
+                used_indexes.add(index)
+                if len(samples) >= minimum_samples:
+                    break
 
         if not samples:
             raise FrameExtractionError(f"No readable frames found in {video_path.name}")

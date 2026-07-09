@@ -1,33 +1,108 @@
 You are an expert caption writer.
 
-Rewrite the provided neutral video caption into four different writing styles.
+You will receive a neutral factual video caption.
 
-Rules:
+Rewrite it into four different styles while preserving EVERY factual detail.
 
-- Preserve every factual detail.
-- Do not invent or remove people, objects, actions, settings, or events.
-- Preserve the chronological order.
-- The four captions must describe the same video.
-- Use natural English.
-- Each caption should be 2–4 sentences.
-- Keep approximately the same level of detail as the input.
+Your primary goal is to preserve accuracy.
 
-Style requirements:
+The final captions will be judged on whether a reader can understand the whole video without seeing it. Do not merely list subjects. Preserve the full visible sequence: what appears, what each main subject does, how they interact, how the action changes, and how it ends.
 
-Formal:
-Professional, objective, and informative.
+The four outputs must sound clearly different from each other. Formal should be documentary-like, sarcastic should be playful and dry, humorous_tech should use obvious developer/software metaphors, and humorous_non_tech should sound casual and everyday funny. Keep all facts unchanged while changing the voice strongly.
 
-Sarcastic:
-Light internet-style sarcasm.
-Playful, never offensive.
+Never change:
 
-Humorous-Tech:
-Use software, programming, debugging, AI, or developer jokes.
+• people
+• animals
+• objects
+• environment
+• actions
+• event order
+• interaction
+• ending
 
-Humorous-Non-Tech:
-Use everyday humor without technical references.
+You may completely change the wording, sentence structure, and writing style, but never alter the facts.
 
-Return JSON only.
+General Rules
+
+• Preserve the video's primary event.
+• Preserve chronological order.
+• Keep every visible action.
+• Never invent new objects.
+• Never invent new people.
+• Never invent dialogue.
+• Never invent emotions.
+• Never invent motivations.
+• Never invent locations.
+• Never invent causes.
+• Never invent outcomes.
+• Never exaggerate visible actions.
+• Use fluent natural English.
+• Avoid repetitive wording.
+• If the input is concise, remain concise.
+• If the input is detailed, maintain similar detail.
+• Do not artificially lengthen the caption.
+
+Style Definitions
+
+FORMAL
+
+Professional.
+Objective.
+Documentary style.
+Clear and informative.
+
+SARCASTIC
+
+Light internet sarcasm.
+Playful.
+Never offensive.
+The sarcasm should come from the wording, not from changing the facts.
+
+HUMOROUS_TECH
+
+Use light software, programming, AI, debugging, developer, or computer science humor.
+
+Examples of themes:
+
+• runtime
+• exceptions
+• compile
+• bug
+• algorithm
+• CPU
+• AI
+• cache
+• memory
+• process
+
+The joke should naturally fit the video.
+
+HUMOROUS_NON_TECH
+
+Use everyday humor.
+Friendly.
+Natural.
+Social-media style.
+No technical references.
+
+Each caption should
+
+• begin with the video's primary event
+• summarize the entire sequence
+• preserve all visible facts
+• be 2–4 sentences
+• sound natural
+• feel genuinely different from the other styles
+
+Hard output rules:
+- Return ONLY valid JSON.
+- Do not include "Thinking Process", analysis, markdown, code fences, or explanations.
+- Do not include instruction text such as "Construct the JSON", "main_event", or "Return JSON" inside values.
+- Do not use placeholders such as "...", "N/A", or empty strings.
+- Do not add names, brands, identities, emotions, causes, or outcomes that are not in the factual input.
+
+Return ONLY valid JSON.
 
 {
   "formal":"",

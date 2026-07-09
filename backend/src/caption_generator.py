@@ -7,7 +7,7 @@ from typing import Any
 from config import settings
 from src.fireworks_client import FireworksClient
 from src.frame_extractor import FrameSample
-from src.validator import InvalidModelResponseError, validate_vision_payload
+from src.validator import InvalidModelResponseError, clean_caption_text, validate_vision_payload
 
 
 class CaptionGenerator:
@@ -22,10 +22,11 @@ class CaptionGenerator:
             f"- frame {frame.index} at {frame.timestamp_seconds}s" for frame in frames
         )
         text = (
+            "/no_think\n"
             f"{self.prompt}\n\n"
             f"Video file: {video_path.name}\n"
             f"Sampled frames:\n{frame_manifest}\n\n"
-            "Return JSON only."
+            "Return final JSON only. Do not include thinking, analysis, markdown, or explanations."
         )
         content: list[dict[str, Any]] = [{"type": "text", "text": text}]
         for frame in frames:
@@ -50,6 +51,14 @@ class CaptionGenerator:
             description, neutral, timeline = validate_vision_payload(raw)
         except InvalidModelResponseError as first_error:
             try:
+                retried, retry_meta = self._retry_vision_json(content)
+                description, neutral, timeline = validate_vision_payload(retried)
+                meta["retry"] = retry_meta
+                return description, neutral, timeline, meta
+            except InvalidModelResponseError as retry_error:
+                meta["retry_error"] = str(retry_error)
+
+            try:
                 repaired, repair_meta = self._repair_vision_json(raw)
                 description, neutral, timeline = validate_vision_payload(repaired)
                 meta["repair"] = repair_meta
@@ -61,6 +70,26 @@ class CaptionGenerator:
                 }
         return description, neutral, timeline, meta
 
+    def _retry_vision_json(self, original_content: list[dict[str, Any]]) -> tuple[str, dict[str, Any]]:
+        retry_content = list(original_content)
+        retry_content[0] = {
+            "type": "text",
+            "text": (
+                "/no_think\n"
+                "Analyze these sampled video frames again. Return ONLY valid JSON, with no markdown or explanation. "
+                "Do not return an empty object. The caption must explain the visible beginning, middle, and ending of the video. "
+                "Required keys: factual_description, scene_timeline, neutral_caption. "
+                "The factual_description and neutral_caption must be complete natural-language summaries, not object lists."
+            ),
+        }
+        return self.client.chat_completion(
+            model=settings.vision_model,
+            messages=[{"role": "user", "content": retry_content}],
+            temperature=0,
+            max_tokens=settings.max_tokens,
+            response_format={"type": "json_object"},
+        )
+
     def _repair_vision_json(self, raw_response: str) -> tuple[str, dict[str, Any]]:
         return self.client.chat_completion(
             model=settings.text_model,
@@ -69,6 +98,7 @@ class CaptionGenerator:
                     "role": "system",
                     "content": (
                         "Convert the user's video analysis into valid JSON only. Do not add facts. "
+                        "Do not include thinking, analysis, markdown, or explanations. "
                         "Do not use placeholders, ellipses, empty strings, or schema examples as values. "
                         "Return exactly these keys with real content from the user's text: "
                         "factual_description, scene_timeline, neutral_caption."
@@ -84,6 +114,9 @@ class CaptionGenerator:
     @staticmethod
     def _fallback_from_text(raw_response: str) -> tuple[str, str, list[str]]:
         cleaned = raw_response.strip()
+        if not cleaned or cleaned in {"{}", "[]"}:
+            raise InvalidModelResponseError("Vision model returned an empty response object.")
+
         frame_start = re.search(r"\bFrame\s+\d+\b", cleaned, flags=re.IGNORECASE)
         if frame_start:
             cleaned = cleaned[frame_start.start() :]
@@ -92,6 +125,17 @@ class CaptionGenerator:
         cleaned = re.sub(r"\*\*|\*", " ", cleaned)
         cleaned = re.sub(r"`", "", cleaned)
         cleaned = re.sub(r"\bThinking Process\s*:\s*", " ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\bConstruct\s+the\s+JSON\b.*", " ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\bReturn\s+(?:ONLY\s+)?valid\s+JSON\b.*", " ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\bmain_event\s*:\s*", " ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\bneutral_caption\s*:\s*", "Summary: ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\bfactual_description\s*:\s*", "Description: ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(
+            r"\bJerry(?:\s+the\s+mouse)?\b",
+            "the brown mouse-like character",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
 
         rejected_prefixes = (
             "analyze the request",
@@ -100,6 +144,8 @@ class CaptionGenerator:
             "valid json",
             "return exactly",
             "construct json",
+            "construct the json",
+            "output json",
         )
         lines = []
         for line in cleaned.splitlines():
@@ -108,11 +154,27 @@ class CaptionGenerator:
                 continue
             if compact.lower().startswith(rejected_prefixes):
                 continue
+            compact = re.sub(
+                r"^Frame\s+\d+(?:\s*\([^)]+\))?\s*:\s*",
+                "",
+                compact,
+                flags=re.IGNORECASE,
+            )
             lines.append(compact)
 
-        description = re.sub(r"\s+", " ", " ".join(lines)).strip()
-        if not description:
-            description = "The model described the sampled video frames, but did not return valid JSON."
+        description = clean_caption_text(re.sub(r"\s+", " ", " ".join(lines)).strip())
+        description = re.sub(r"\s+([,.!?;:])", r"\1", description)
+        description = re.sub(
+            r"\bthe brown mouse-like character\s+the mouse\b",
+            "the brown mouse-like character",
+            description,
+            flags=re.IGNORECASE,
+        )
+        description = description.strip(" {}[]")
+        if len(re.findall(r"[A-Za-z0-9]+", description)) < 18:
+            raise InvalidModelResponseError(
+                f"Vision fallback did not contain enough factual detail: {raw_response[:300]!r}"
+            )
 
         timeline = [
             re.sub(r"\s+", " ", line).strip()
@@ -130,5 +192,9 @@ class CaptionGenerator:
         neutral = " ".join(meaningful[-4:] if len(meaningful) > 4 else meaningful).strip()
         if not neutral:
             neutral = description[:900].strip()
+        if len(re.findall(r"[A-Za-z0-9]+", neutral)) < 18:
+            raise InvalidModelResponseError(
+                f"Vision fallback did not produce a meaningful neutral caption: {neutral!r}"
+            )
 
         return description[:1800], neutral[:1000], timeline

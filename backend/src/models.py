@@ -6,10 +6,10 @@ from pydantic import BaseModel, Field, HttpUrl
 
 
 class CaptionSet(BaseModel):
-    formal: str = Field(min_length=1, max_length=1200)
-    sarcastic: str = Field(min_length=1, max_length=1200)
-    humorous_tech: str = Field(min_length=1, max_length=1200)
-    humorous_non_tech: str = Field(min_length=1, max_length=1200)
+    formal: str = Field(min_length=1, max_length=2200)
+    sarcastic: str = Field(min_length=1, max_length=2200)
+    humorous_tech: str = Field(min_length=1, max_length=2200)
+    humorous_non_tech: str = Field(min_length=1, max_length=2200)
 
 
 class VideoCaptionResult(CaptionSet):
