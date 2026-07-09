@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BookOpenText,
@@ -10,6 +10,7 @@ import {
   Flame,
   Link2,
   Loader2,
+  MonitorPlay,
   PartyPopper,
   Sparkles,
   Upload,
@@ -35,6 +36,15 @@ interface LocalVideoItem {
   sizeMb: string;
   type: string;
   file: File;
+  previewUrl: string;
+}
+
+interface PreviewItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  url: string;
+  source: "local" | "url";
 }
 
 interface CaptionResult {
@@ -86,18 +96,43 @@ export function CaptionStudio() {
   const [files, setFiles] = useState<LocalVideoItem[]>([]);
   const [urlValue, setUrlValue] = useState("");
   const [urlQueue, setUrlQueue] = useState<string[]>([]);
+  const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [formError, setFormError] = useState("");
   const [response, setResponse] = useState<BatchResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const localPreviewUrls = useRef<Set<string>>(new Set());
 
   const totalQueued = useMemo(
     () => files.length + urlQueue.length,
     [files.length, urlQueue.length],
   );
   const canProcess = totalQueued > 0 && !isProcessing;
+  const previewItems = useMemo<PreviewItem[]>(
+    () => [
+      ...files.map((file) => ({
+        id: file.id,
+        title: file.name,
+        subtitle: `${file.sizeMb} MB - ${file.type || "video"}`,
+        url: file.previewUrl,
+        source: "local" as const,
+      })),
+      ...urlQueue.map((url) => ({
+        id: url,
+        title: url,
+        subtitle: "Direct video URL",
+        url,
+        source: "url" as const,
+      })),
+    ],
+    [files, urlQueue],
+  );
+  const activePreview = useMemo(
+    () => previewItems.find((item) => item.id === activePreviewId) ?? previewItems[0] ?? null,
+    [activePreviewId, previewItems],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +160,23 @@ export function CaptionStudio() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!previewItems.length) {
+      setActivePreviewId(null);
+      return;
+    }
+    if (!activePreviewId || !previewItems.some((item) => item.id === activePreviewId)) {
+      setActivePreviewId(previewItems[0].id);
+    }
+  }, [activePreviewId, previewItems]);
+
+  useEffect(() => {
+    return () => {
+      localPreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      localPreviewUrls.current.clear();
+    };
+  }, []);
+
   const addFiles = (incoming: File[]) => {
     if (!incoming.length) return;
 
@@ -141,11 +193,19 @@ export function CaptionStudio() {
       type: file.type || "video",
       sizeMb: (file.size / (1024 * 1024)).toFixed(2),
       file,
+      previewUrl: URL.createObjectURL(file),
     }));
+    normalized.forEach((item) => localPreviewUrls.current.add(item.previewUrl));
 
     setFiles((prev) => {
       const existing = new Set(prev.map((item) => item.id));
       const deduped = normalized.filter((item) => !existing.has(item.id));
+      normalized
+        .filter((item) => existing.has(item.id))
+        .forEach((item) => {
+          URL.revokeObjectURL(item.previewUrl);
+          localPreviewUrls.current.delete(item.previewUrl);
+        });
       return [...prev, ...deduped];
     });
   };
@@ -173,6 +233,7 @@ export function CaptionStudio() {
         return;
       }
       setUrlQueue((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+      setActivePreviewId(trimmed);
       setUrlValue("");
       setFormError("");
     } catch {
@@ -208,7 +269,16 @@ export function CaptionStudio() {
     }
   };
 
-  const removeLocal = (id: string) => setFiles((prev) => prev.filter((item) => item.id !== id));
+  const removeLocal = (id: string) => {
+    setFiles((prev) => {
+      const removed = prev.find((item) => item.id === id);
+      if (removed) {
+        URL.revokeObjectURL(removed.previewUrl);
+        localPreviewUrls.current.delete(removed.previewUrl);
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+  };
   const removeUrl = (url: string) => setUrlQueue((prev) => prev.filter((item) => item !== url));
 
   return (
@@ -236,9 +306,9 @@ export function CaptionStudio() {
           </p>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <Card className="border-border/80 shadow-sm">
-            <CardContent className="p-5 sm:p-6">
+            <CardContent className="flex h-full flex-col p-5 sm:p-6">
               <Tabs value={mode} onValueChange={(value) => setMode(value as "local" | "url")}>
                 <TabsList className="mb-5">
                   <TabsTrigger value="local" className="gap-1.5">
@@ -296,9 +366,16 @@ export function CaptionStudio() {
                       {files.map((file) => (
                         <li
                           key={file.id}
-                          className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2.5 transition-colors hover:border-primary/30"
+                          className={cn(
+                            "flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:border-primary/30",
+                            activePreview?.id === file.id ? "border-primary/50" : "border-border",
+                          )}
                         >
-                          <div className="flex min-w-0 items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setActivePreviewId(file.id)}
+                            className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                          >
                             <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
                               <FileVideo className="size-4" />
                             </span>
@@ -308,7 +385,7 @@ export function CaptionStudio() {
                                 {file.sizeMb} MB · {file.type || "video"}
                               </p>
                             </div>
-                          </div>
+                          </button>
                           <Button
                             onClick={() => removeLocal(file.id)}
                             type="button"
@@ -354,14 +431,21 @@ export function CaptionStudio() {
                       {urlQueue.map((url) => (
                         <li
                           key={url}
-                          className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2.5 transition-colors hover:border-primary/30"
+                          className={cn(
+                            "flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:border-primary/30",
+                            activePreview?.id === url ? "border-primary/50" : "border-border",
+                          )}
                         >
-                          <div className="flex min-w-0 items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setActivePreviewId(url)}
+                            className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                          >
                             <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
                               <Link2 className="size-4" />
                             </span>
                             <p className="min-w-0 truncate text-sm">{url}</p>
-                          </div>
+                          </button>
                           <Button
                             onClick={() => removeUrl(url)}
                             type="button"
@@ -377,8 +461,121 @@ export function CaptionStudio() {
                   )}
                 </div>
               )}
+
+              <div className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-2">
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <MonitorPlay className="size-4 text-muted-foreground" />
+                    Active video
+                  </div>
+                  {activePreview ? (
+                    <div className="mt-3 min-w-0 space-y-1">
+                      <p className="truncate text-sm font-medium">{activePreview.title}</p>
+                      <p className="text-xs text-muted-foreground">{activePreview.subtitle}</p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      Select or add a video to begin.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="size-4 text-muted-foreground" />
+                    Caption styles
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge variant="outline" className="gap-1.5 border-blue-500/30">
+                      <BookOpenText className="size-3" />
+                      Formal
+                    </Badge>
+                    <Badge variant="outline" className="gap-1.5 border-amber-500/30">
+                      <Flame className="size-3" />
+                      Sarcastic
+                    </Badge>
+                    <Badge variant="outline" className="gap-1.5 border-violet-500/30">
+                      <Cpu className="size-3" />
+                      Tech
+                    </Badge>
+                    <Badge variant="outline" className="gap-1.5 border-pink-500/30">
+                      <PartyPopper className="size-3" />
+                      Casual
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-muted/30 p-4 sm:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium">Batch readiness</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {totalQueued > 0
+                          ? `${totalQueued} video${totalQueued === 1 ? "" : "s"} queued for caption generation.`
+                          : "Queue is empty."}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "shrink-0",
+                        canProcess
+                          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                          : "border-border text-muted-foreground",
+                      )}
+                    >
+                      {canProcess ? "Ready" : "Waiting"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
+
+          <div className="space-y-6">
+            <Card className="border-border/80 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MonitorPlay className="size-4 text-muted-foreground" />
+                  Video preview
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="overflow-hidden rounded-lg border border-border bg-muted">
+                  {activePreview ? (
+                    <video
+                      key={activePreview.url}
+                      src={activePreview.url}
+                      className="aspect-video w-full bg-black object-contain"
+                      controls
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      preload="metadata"
+                    />
+                  ) : (
+                    <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-background text-center text-muted-foreground">
+                      <MonitorPlay className="size-8" />
+                      <p className="text-sm font-medium">No video selected</p>
+                    </div>
+                  )}
+                </div>
+                {activePreview ? (
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{activePreview.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {activePreview.source === "local" ? "Local preview" : "URL preview"} -{" "}
+                      {activePreview.subtitle}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Add a local video or direct URL to preview it here.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
           <Card className="border-border/80 shadow-sm">
             <CardHeader className="pb-3">
@@ -459,6 +656,7 @@ export function CaptionStudio() {
               )}
             </CardContent>
           </Card>
+          </div>
         </section>
 
         {response && (

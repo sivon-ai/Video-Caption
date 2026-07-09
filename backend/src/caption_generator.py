@@ -135,12 +135,6 @@ class CaptionGenerator:
         cleaned = re.sub(r"\bmain_event\s*:\s*", " ", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"\bneutral_caption\s*:\s*", "Summary: ", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"\bfactual_description\s*:\s*", "Description: ", cleaned, flags=re.IGNORECASE)
-        cleaned = re.sub(
-            r"\bJerry(?:\s+the\s+mouse)?\b",
-            "the brown mouse-like character",
-            cleaned,
-            flags=re.IGNORECASE,
-        )
 
         rejected_prefixes = (
             "analyze the request",
@@ -169,12 +163,6 @@ class CaptionGenerator:
 
         description = clean_caption_text(re.sub(r"\s+", " ", " ".join(lines)).strip())
         description = re.sub(r"\s+([,.!?;:])", r"\1", description)
-        description = re.sub(
-            r"\bthe brown mouse-like character\s+the mouse\b",
-            "the brown mouse-like character",
-            description,
-            flags=re.IGNORECASE,
-        )
         description = description.strip(" {}[]")
         if len(re.findall(r"[A-Za-z0-9]+", description)) < 18:
             raise InvalidModelResponseError(

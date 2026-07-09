@@ -16,6 +16,8 @@ Important style rule: do not add only one styled opening sentence and then copy 
 
 Style strength rule: the sarcastic, humorous_tech, and humorous_non_tech captions must be rewritten throughout, not lightly prefixed. The middle and ending sentences must sound just as styled as the opening sentence.
 
+Content-specific rule: do not use reusable template phrases that name any setting, object, character, action, or situation unless it appears in the factual input. Let the jokes and wording come from the current video's visible content.
+
 Never change:
 
 • people
