@@ -200,7 +200,11 @@ def validate_vision_payload(text: str) -> tuple[str, str, list[str]]:
     description = clean_caption_text(str(payload.get("factual_description") or payload.get("description") or ""))
     neutral = clean_caption_text(str(payload.get("neutral_caption") or payload.get("neutral") or ""))
     raw_timeline = payload.get("scene_timeline") or payload.get("timeline") or []
-    timeline = [clean_caption_text(str(item)) for item in raw_timeline if clean_caption_text(str(item))] if isinstance(raw_timeline, list) else []
+    timeline = [
+        clean_caption_text(_timeline_item_text(item))
+        for item in raw_timeline
+        if clean_caption_text(_timeline_item_text(item))
+    ] if isinstance(raw_timeline, list) else []
 
     merged = merge_caption_sources(description or main_event, timeline, neutral, limit=1800)
     if merged:
@@ -218,6 +222,18 @@ def validate_vision_payload(text: str) -> tuple[str, str, list[str]]:
     _require_meaningful(description, "factual_description", min_words=18)
     _require_meaningful(neutral, "neutral_caption", min_words=18)
     return description, neutral, timeline
+
+
+def _timeline_item_text(item: Any) -> str:
+    if isinstance(item, dict):
+        return str(
+            item.get("description")
+            or item.get("event")
+            or item.get("caption")
+            or item.get("text")
+            or ""
+        )
+    return str(item)
 
 
 def _synthesize_neutral_caption(main_event: str, description: str, timeline: list[str]) -> str:
