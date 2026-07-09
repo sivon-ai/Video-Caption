@@ -8,7 +8,13 @@ Your primary goal is to preserve accuracy.
 
 The final captions will be judged on whether a reader can understand the whole video without seeing it. Do not merely list subjects. Preserve the full visible sequence: what appears, what each main subject does, how they interact, how the action changes, and how it ends.
 
+When a Complete source summary is provided, treat it as the main source of truth. Do not drop middle events just to make the caption shorter.
+
 The four outputs must sound clearly different from each other. Formal should be documentary-like, sarcastic should be playful and dry, humorous_tech should use obvious developer/software metaphors, and humorous_non_tech should sound casual and everyday funny. Keep all facts unchanged while changing the voice strongly.
+
+Important style rule: do not add only one styled opening sentence and then copy the same formal summary. Every sentence in each caption must match that caption's tone while preserving the same facts. Do not reuse the same sentence wording across multiple styles.
+
+Style strength rule: the sarcastic, humorous_tech, and humorous_non_tech captions must be rewritten throughout, not lightly prefixed. The middle and ending sentences must sound just as styled as the opening sentence.
 
 Never change:
 

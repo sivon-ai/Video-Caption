@@ -45,7 +45,7 @@ class CaptionGenerator:
             messages=[{"role": "user", "content": content}],
             temperature=0.1,
             max_tokens=settings.max_tokens,
-            response_format={"type": "json_object"},
+            response_format=None,
         )
         try:
             description, neutral, timeline = validate_vision_payload(raw)
@@ -63,6 +63,11 @@ class CaptionGenerator:
                 description, neutral, timeline = validate_vision_payload(repaired)
                 meta["repair"] = repair_meta
             except InvalidModelResponseError as repair_error:
+                if not raw.strip() or raw.strip() in {"{}", "[]"}:
+                    raise InvalidModelResponseError(
+                        "Vision model returned an empty description for the sampled frames. "
+                        "Try a different Fireworks vision model or rerun with fewer/smaller frames."
+                    ) from repair_error
                 description, neutral, timeline = self._fallback_from_text(raw)
                 meta["fallback"] = {
                     "original_error": str(first_error),
@@ -87,7 +92,7 @@ class CaptionGenerator:
             messages=[{"role": "user", "content": retry_content}],
             temperature=0,
             max_tokens=settings.max_tokens,
-            response_format={"type": "json_object"},
+            response_format=None,
         )
 
     def _repair_vision_json(self, raw_response: str) -> tuple[str, dict[str, Any]]:

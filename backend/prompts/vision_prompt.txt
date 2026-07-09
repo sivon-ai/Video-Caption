@@ -12,6 +12,8 @@ The final captions will be judged on whether a reader can understand the whole v
 
 For clear action videos, provide richer detail than a short caption: describe the beginning, middle, and ending of the visible sequence, plus the important props/objects involved. Aim for a neutral caption that is detailed enough to understand the video from text alone.
 
+Do not split the story so that one field contains the beginning and another field contains the ending. The factual_description and neutral_caption must each summarize the complete visible sequence.
+
 Silently check these points internally before generating the answer. Do not write the checklist, reasoning, or thinking process:
 
 1. What is the main event or activity occurring across the video?

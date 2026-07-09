@@ -121,10 +121,15 @@ class VideoProcessor:
         compact_results: list[dict[str, Any]] = [
             {
                 "video": item.video,
+                "neutral": item.neutral,
+                "factual_description": item.factual_description,
+                "scene_timeline": item.scene_timeline,
                 "formal": item.formal,
                 "sarcastic": item.sarcastic,
                 "humorous_tech": item.humorous_tech,
                 "humorous_non_tech": item.humorous_non_tech,
+                "frame_count": item.frame_count,
+                "processing_seconds": item.processing_seconds,
             }
             for item in response.results
         ]

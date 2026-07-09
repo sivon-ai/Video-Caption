@@ -23,6 +23,11 @@ def clean_caption_text(value: str) -> str:
     cleaned = value.strip()
     cleaned = re.sub(r"\bCaption\s*:\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\bActually,?\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\b(?:I'll|I will)\s+include[^.!?]*(?:[.!?]|$)", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[^.!?]*\bweirdly placed\b[^.!?]*(?:[.!?]|$)", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[^.!?]*\bspliced in\b[^.!?]*(?:[.!?]|$)", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[^.!?]*\bspecific gag\b[^.!?]*(?:[.!?]|$)", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\((?:maybe|possibly|probably)[^)]*\)", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\blooking at (?:the )?(?:frame|image)[^.!?]*(?:[.!?]|$)", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\b(?:frame|image)\s+\d+(?:\s+at\s+\d+(?:\.\d+)?s)?\s*:?", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\b\d+(?:\.\d+)?s\s*\([^)]*\)", " ", cleaned, flags=re.IGNORECASE)
@@ -31,11 +36,88 @@ def clean_caption_text(value: str) -> str:
     cleaned = re.sub(r"\bprompt list\b", "sampled sequence", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\bWait,?\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\bThis loo\b.*$", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bthis looks like a different scene or a transition\b", "the scene changes", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s+", " ", cleaned)
+    cleaned = re.sub(r"\.\s*:", ". ", cleaned)
+    cleaned = re.sub(r":\s*(?=[A-Z])", ". ", cleaned)
     cleaned = re.sub(r"\.\s*,\s*", ". ", cleaned)
     cleaned = re.sub(r"\s+,", ",", cleaned)
     cleaned = re.sub(r"\s+([,.!?;:])", r"\1", cleaned)
     return cleaned.strip(" -")
+
+
+def _word_count(value: str) -> int:
+    return len(re.findall(r"[A-Za-z0-9]+", value))
+
+
+def _sentence_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def _content_words(value: str) -> set[str]:
+    stopwords = {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "in",
+        "is",
+        "it",
+        "near",
+        "of",
+        "on",
+        "the",
+        "to",
+        "with",
+    }
+    return {
+        word.lower()
+        for word in re.findall(r"[A-Za-z0-9]+", value)
+        if len(word) > 2 and word.lower() not in stopwords
+    }
+
+
+def merge_caption_sources(*parts: object, limit: int = 1600) -> str:
+    """Merge model caption fields without repeating the same visible event."""
+    sentences: list[str] = []
+    seen: set[str] = set()
+
+    def add_text(text: str) -> None:
+        cleaned = clean_caption_text(text)
+        if not cleaned:
+            return
+        chunks = re.split(r"(?<=[.!?])\s+", cleaned)
+        if len(chunks) == 1:
+            chunks = re.split(r"\s+(?=(?:Then|Next|After|Later|Finally|By the end)\b)", cleaned)
+        for chunk in chunks:
+            sentence = clean_caption_text(chunk).strip(" .")
+            if _word_count(sentence) < 5:
+                continue
+            key = _sentence_key(sentence)
+            if not key or key in seen:
+                continue
+            words = _content_words(sentence)
+            if any(
+                words
+                and existing_words
+                and len(words & existing_words) / max(1, min(len(words), len(existing_words))) >= 0.85
+                for existing_words in (_content_words(existing) for existing in sentences)
+            ):
+                continue
+            seen.add(key)
+            sentences.append(sentence.rstrip(".") + ".")
+
+    for part in parts:
+        if isinstance(part, list):
+            for item in part:
+                add_text(str(item))
+        elif part:
+            add_text(str(part))
+
+    merged = " ".join(sentences)
+    return merged[:limit].rstrip()
 
 
 def _is_meaningful_text(value: str, min_words: int = 6) -> bool:
@@ -114,15 +196,19 @@ def extract_json_object(text: str) -> dict[str, Any]:
 
 def validate_vision_payload(text: str) -> tuple[str, str, list[str]]:
     payload = extract_json_object(text)
-    main_event = str(payload.get("main_event") or "").strip()
+    main_event = clean_caption_text(str(payload.get("main_event") or ""))
     description = clean_caption_text(str(payload.get("factual_description") or payload.get("description") or ""))
     neutral = clean_caption_text(str(payload.get("neutral_caption") or payload.get("neutral") or ""))
     raw_timeline = payload.get("scene_timeline") or payload.get("timeline") or []
     timeline = [clean_caption_text(str(item)) for item in raw_timeline if clean_caption_text(str(item))] if isinstance(raw_timeline, list) else []
 
-    if not neutral and description:
+    merged = merge_caption_sources(description or main_event, timeline, neutral, limit=1800)
+    if merged:
+        description = merged
+        neutral = _compact_neutral_summary(merged, limit=1000)
+    elif not neutral and description:
         neutral = _synthesize_neutral_caption(main_event, description, timeline)
-    if not description and neutral:
+    elif not description and neutral:
         description = neutral
 
     if not description or not neutral:
@@ -143,6 +229,24 @@ def _synthesize_neutral_caption(main_event: str, description: str, timeline: lis
         parts.append(f"The visible sequence shows {sequence}.")
     parts.append(description)
     return " ".join(parts)
+
+
+def _compact_neutral_summary(source: str, limit: int = 1000) -> str:
+    sentences = [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+", source)
+        if _word_count(sentence) >= 5
+    ]
+    if not sentences:
+        return source[:limit].rstrip()
+
+    summary = ""
+    for sentence in sentences:
+        candidate = f"{summary} {sentence}".strip()
+        if len(candidate) > limit:
+            break
+        summary = candidate
+    return summary or source[:limit].rstrip()
 
 
 def validate_caption_set(text: str) -> CaptionSet:
