@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Annotated
+from uuid import uuid4
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
+
+from config import settings
+from src.fireworks_client import ApiConfigurationError
+from src.models import BatchResponse
+from src.utils import download_video, safe_filename
+from src.video_processor import VideoProcessor
+
+
+app = FastAPI(title="AI Video Captioning Backend", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+def startup() -> None:
+    settings.ensure_directories()
+
+
+@app.get("/health")
+def health() -> dict[str, object]:
+    return {
+        "ok": True,
+        "api_configured": settings.is_api_configured,
+        "vision_model": settings.vision_model,
+        "text_model": settings.text_model,
+    }
+
+
+@app.post("/api/captions/process", response_model=BatchResponse)
+async def process_captions(
+    files: Annotated[list[UploadFile] | None, File()] = None,
+    urls: Annotated[list[str] | None, Form()] = None,
+) -> BatchResponse:
+    if not files and not urls:
+        raise HTTPException(status_code=400, detail="Upload at least one video file or URL.")
+
+    batch_dir = settings.videos_dir / "api" / uuid4().hex
+    batch_dir.mkdir(parents=True, exist_ok=True)
+
+    videos: list[tuple[Path, str]] = []
+    for upload in files or []:
+        suffix = Path(upload.filename or "").suffix.lower()
+        if suffix not in settings.video_extensions:
+            raise HTTPException(status_code=400, detail=f"Unsupported video type: {upload.filename}")
+
+        target = batch_dir / safe_filename(upload.filename or "uploaded-video.mp4", suffix)
+        written = 0
+        max_bytes = settings.max_upload_mb * 1024 * 1024
+        with target.open("wb") as output:
+            while chunk := await upload.read(1024 * 1024):
+                written += len(chunk)
+                if written > max_bytes:
+                    target.unlink(missing_ok=True)
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"{upload.filename} exceeds {settings.max_upload_mb} MB.",
+                    )
+                output.write(chunk)
+        videos.append((target, "upload"))
+
+    for url in urls or []:
+        try:
+            videos.append((download_video(url, batch_dir, settings), "url"))
+        except Exception as exc:
+            logger.exception("URL download failed: {}", url)
+            raise HTTPException(status_code=400, detail=f"Could not download {url}: {exc}") from exc
+
+    output_file = settings.outputs_dir / f"captions-{batch_dir.name}.json"
+    try:
+        processor = VideoProcessor()
+        return processor.process_paths(videos, output_file)
+    except ApiConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
