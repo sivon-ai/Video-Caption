@@ -2,27 +2,18 @@
 .agents
 .codex
 
-Dockerfile
-.dockerignore
-
 backend/.env
-backend/.env.*
-!backend/.env.example
 backend/.venv
 backend/venv
 backend/env
 backend/ENV
 backend/__pycache__
-backend/**/__pycache__
 backend/.pytest_cache
 backend/.mypy_cache
 backend/.ruff_cache
-backend/logs/*
-!backend/logs/.gitkeep
-backend/outputs/*
-!backend/outputs/.gitkeep
-backend/videos/*
-!backend/videos/.gitkeep
+backend/logs
+backend/outputs
+backend/videos
 
 frontend/node_modules
 frontend/.output

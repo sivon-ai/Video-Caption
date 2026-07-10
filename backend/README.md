@@ -32,7 +32,7 @@ MAX_WORKERS=1
 
 Any OpenAI-compatible chat completions endpoint should work if it accepts image inputs in `image_url` message content.
 
-## Docker Batch Mode
+## Docker Mode
 
 Build from the project root:
 
@@ -40,7 +40,19 @@ Build from the project root:
 docker build -t elsondocker16/video-caption:latest .
 ```
 
-Run the backend entrypoint with environment variables:
+Run the FastAPI backend with environment variables:
+
+```bash
+docker run --rm \
+  -p 8000:8000 \
+  -e API_KEY="$API_KEY" \
+  -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
+  -e VISION_MODEL="$VISION_MODEL" \
+  -e TEXT_MODEL="$TEXT_MODEL" \
+  elsondocker16/video-caption:latest
+```
+
+Run batch mode with mounted folders:
 
 ```bash
 docker run --rm \
@@ -50,10 +62,10 @@ docker run --rm \
   -e TEXT_MODEL="$TEXT_MODEL" \
   -v "$(pwd)/backend/videos:/app/videos" \
   -v "$(pwd)/backend/outputs:/app/outputs" \
-  elsondocker16/video-caption:latest
+  elsondocker16/video-caption:latest batch
 ```
 
-The image entrypoint is `python app.py`, so it writes batch output JSON to `/app/outputs/captions.json`.
+The default Docker command starts `uvicorn api:app` on `${PORT:-8000}` for Render. The `batch` command runs `python app.py` and writes batch output JSON to `/app/outputs/captions.json`.
 
 ## Run API for the Frontend
 

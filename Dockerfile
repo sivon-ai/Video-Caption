@@ -17,7 +17,14 @@ COPY backend/requirements.txt ./requirements.txt
 RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
-COPY backend/ ./
-RUN mkdir -p videos outputs logs
+COPY backend/app.py backend/api.py backend/config.py ./
+COPY backend/src ./src
+COPY backend/prompts ./prompts
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN mkdir -p videos outputs logs \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
-ENTRYPOINT ["python", "app.py"]
+EXPOSE 8000
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["api"]

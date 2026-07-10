@@ -10,7 +10,6 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
   return (
@@ -38,7 +37,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    console.error("Root route error boundary", error);
   }, [error]);
 
   return (
@@ -83,7 +82,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Upload videos locally or by URL and prepare multi-style AI captions with a fast, structured workflow.",
       },
-      { name: "author", content: "Lovable" },
+      { name: "author", content: "AI Video Captioning Studio" },
       { property: "og:title", content: "AI Video Captioning Studio" },
       {
         property: "og:description",

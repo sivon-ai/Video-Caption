@@ -20,7 +20,8 @@ The frontend lets users upload local videos or add direct video URLs, preview th
 - Generated caption results with success/failure counts and saved output path.
 - FastAPI backend with `/health` and `/api/captions/process`.
 - CLI batch mode through `python app.py`.
-- Dockerized Linux backend image with working `ENTRYPOINT`.
+- Dockerized Linux backend image that starts the FastAPI server by default.
+- Docker batch mode remains available with the `batch` command.
 - Public Docker Hub image: `elsondocker16/video-caption:latest`.
 - Docker Hub page: https://hub.docker.com/r/elsondocker16/video-caption.
 
@@ -156,7 +157,7 @@ http://localhost:5173
 
 ## Docker
 
-The Docker image runs the backend batch entrypoint. It reads configuration from environment variables instead of copying `.env` into the image.
+The Docker image starts the FastAPI backend by default, which is required for Render web services. It reads configuration from environment variables instead of copying `.env` into the image.
 
 Public image tag:
 
@@ -172,6 +173,18 @@ Build locally:
 docker build -t elsondocker16/video-caption:latest .
 ```
 
+Run the API locally from Docker:
+
+```bash
+docker run --rm \
+  -p 8000:8000 \
+  -e API_KEY="$API_KEY" \
+  -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
+  -e VISION_MODEL="$VISION_MODEL" \
+  -e TEXT_MODEL="$TEXT_MODEL" \
+  elsondocker16/video-caption:latest
+```
+
 Run batch mode with mounted folders:
 
 ```bash
@@ -182,7 +195,7 @@ docker run --rm \
   -e TEXT_MODEL="$TEXT_MODEL" \
   -v "$(pwd)/backend/videos:/app/videos" \
   -v "$(pwd)/backend/outputs:/app/outputs" \
-  elsondocker16/video-caption:latest
+  elsondocker16/video-caption:latest batch
 ```
 
 Pull the public image:
@@ -198,13 +211,16 @@ docker login
 docker push elsondocker16/video-caption:latest
 ```
 
-The image entrypoint is:
+The image startup is:
 
 ```json
-["python", "app.py"]
+{
+  "ENTRYPOINT": ["docker-entrypoint.sh"],
+  "CMD": ["api"]
+}
 ```
 
-With no videos mounted, the entrypoint still runs and writes an empty JSON array to `/app/outputs/captions.json`.
+For Render, keep the default Docker command so the service listens on Render's `PORT`. For batch processing, pass `batch`; with no videos mounted, batch mode writes an empty JSON array to `/app/outputs/captions.json`.
 
 ## Batch Mode
 
@@ -267,7 +283,8 @@ Returns generated captions, processing statistics, per-video errors, and the out
 - Docker image is public: `elsondocker16/video-caption:latest`.
 - Docker Hub page: https://hub.docker.com/r/elsondocker16/video-caption.
 - Correct image tag: `elsondocker16/video-caption:latest`.
-- ENTRYPOINT works: `["python", "app.py"]`.
+- ENTRYPOINT works: `["docker-entrypoint.sh"]`.
+- Render web startup works through default `CMD ["api"]`.
 
 ## Implementation Checklist
 
@@ -291,6 +308,7 @@ Returns generated captions, processing statistics, per-video errors, and the out
 - Configurable parallel workers through `MAX_WORKERS`.
 - CLI batch mode.
 - Docker batch image.
+- Docker API web service mode for Render.
 - Public Docker Hub image.
 
 ## Requirement Before Real Captioning
