@@ -27,6 +27,8 @@ No dataset is required for normal usage. You only need videos, an API key, a vis
 
 ```text
 Video Caption/
+├── Dockerfile
+├── .dockerignore
 ├── README.md
 ├── backend/
 │   ├── app.py
@@ -90,9 +92,9 @@ Set `VITE_BACKEND_URL` in the frontend environment if your backend is not runnin
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
-copy .env.example .env
+cp .env.example .env
 ```
 
 Fill `backend/.env`:
@@ -106,6 +108,38 @@ MAX_WORKERS=1
 ```
 
 The backend expects an OpenAI-compatible chat completions API that supports image inputs through `image_url` message content.
+
+### Docker
+
+The Docker image runs the backend batch entrypoint. It reads configuration from environment variables, not from a copied `.env` file.
+
+Build the image:
+
+```bash
+docker build -t your-dockerhub-username/video-caption:latest .
+```
+
+Run the image in batch mode:
+
+```bash
+docker run --rm \
+  -e API_KEY="$API_KEY" \
+  -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
+  -e VISION_MODEL="$VISION_MODEL" \
+  -e TEXT_MODEL="$TEXT_MODEL" \
+  -v "$(pwd)/backend/videos:/app/videos" \
+  -v "$(pwd)/backend/outputs:/app/outputs" \
+  your-dockerhub-username/video-caption:latest
+```
+
+With no videos mounted, the entrypoint still runs and writes an empty JSON array to `/app/outputs/captions.json`.
+
+Publish the final public image after replacing the tag with your Docker Hub repository:
+
+```bash
+docker login
+docker push your-dockerhub-username/video-caption:latest
+```
 
 ### Frontend
 
@@ -201,6 +235,8 @@ Returns generated captions, processing statistics, per-video errors, and the out
 - Configurable parallel workers: implemented with `MAX_WORKERS`, defaulting to `1` for rate-limit safety.
 - Frontend connection: implemented with FastAPI endpoints.
 - CLI batch mode: implemented with `python app.py`.
+- Docker batch image: implemented with root `Dockerfile`.
+- Docker entrypoint: implemented as `python app.py`.
 
 ## Current Requirement Before Real Captioning
 

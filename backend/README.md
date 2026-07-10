@@ -15,9 +15,9 @@ API responses also include a factual scene timeline when the vision model return
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
-copy .env.example .env
+cp .env.example .env
 ```
 
 Fill `backend/.env`:
@@ -31,6 +31,29 @@ MAX_WORKERS=1
 ```
 
 Any OpenAI-compatible chat completions endpoint should work if it accepts image inputs in `image_url` message content.
+
+## Docker Batch Mode
+
+Build from the project root:
+
+```bash
+docker build -t your-dockerhub-username/video-caption:latest .
+```
+
+Run the backend entrypoint with environment variables:
+
+```bash
+docker run --rm \
+  -e API_KEY="$API_KEY" \
+  -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
+  -e VISION_MODEL="$VISION_MODEL" \
+  -e TEXT_MODEL="$TEXT_MODEL" \
+  -v "$(pwd)/backend/videos:/app/videos" \
+  -v "$(pwd)/backend/outputs:/app/outputs" \
+  your-dockerhub-username/video-caption:latest
+```
+
+The image entrypoint is `python app.py`, so it writes batch output JSON to `/app/outputs/captions.json`.
 
 ## Run API for the Frontend
 
