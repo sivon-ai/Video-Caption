@@ -22,6 +22,7 @@ The frontend lets users upload local videos or add direct video URLs, preview th
 - CLI batch mode through `python app.py`.
 - Dockerized Linux backend image with working `ENTRYPOINT`.
 - Public Docker Hub image: `elsondocker16/video-caption:latest`.
+- Docker Hub page: https://hub.docker.com/r/elsondocker16/video-caption.
 
 ## What The Project Does
 
@@ -157,11 +158,13 @@ http://localhost:5173
 
 The Docker image runs the backend batch entrypoint. It reads configuration from environment variables instead of copying `.env` into the image.
 
-Public image:
+Public image tag:
 
 ```text
-[elsondocker16/video-caption:latest](https://hub.docker.com/r/elsondocker16/video-caption)
+elsondocker16/video-caption:latest
 ```
+
+Docker Hub page: https://hub.docker.com/r/elsondocker16/video-caption
 
 Build locally:
 
@@ -262,6 +265,7 @@ Returns generated captions, processing statistics, per-video errors, and the out
 - Works on Linux: verified with Docker Linux image.
 - Produces output JSON: verified.
 - Docker image is public: `elsondocker16/video-caption:latest`.
+- Docker Hub page: https://hub.docker.com/r/elsondocker16/video-caption.
 - Correct image tag: `elsondocker16/video-caption:latest`.
 - ENTRYPOINT works: `["python", "app.py"]`.
 
