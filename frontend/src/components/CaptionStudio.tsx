@@ -304,6 +304,43 @@ export function CaptionStudio() {
             Queue videos from your device or direct links, then run the Python AI pipeline to
             generate formal, sarcastic, humorous-tech, and humorous-non-tech captions.
           </p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Badge variant="outline" className="gap-1.5">
+              <Film className="size-3.5" />
+              {totalQueued} queued
+            </Badge>
+            <Badge variant="outline" className="gap-1.5">
+              <FileVideo className="size-3.5" />
+              {files.length} local
+            </Badge>
+            <Badge variant="outline" className="gap-1.5">
+              <Link2 className="size-3.5" />
+              {urlQueue.length} URLs
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(
+                "gap-1.5",
+                health?.api_configured
+                  ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                  : health
+                    ? "border-destructive/40 text-destructive"
+                    : "text-muted-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  health?.api_configured ? "bg-emerald-500" : "bg-destructive",
+                )}
+              />
+              {health
+                ? health.api_configured
+                  ? "Backend ready"
+                  : "Backend needs config"
+                : healthError || "Checking backend"}
+            </Badge>
+          </div>
         </header>
 
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -462,78 +499,38 @@ export function CaptionStudio() {
                 </div>
               )}
 
-              <div className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-2">
-                <div className="rounded-lg border border-border bg-muted/30 p-4">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <MonitorPlay className="size-4 text-muted-foreground" />
-                    Active video
-                  </div>
-                  {activePreview ? (
-                    <div className="mt-3 min-w-0 space-y-1">
-                      <p className="truncate text-sm font-medium">{activePreview.title}</p>
-                      <p className="text-xs text-muted-foreground">{activePreview.subtitle}</p>
-                    </div>
+              <div className="mt-auto space-y-3 border-t border-border pt-5">
+                <Button
+                  onClick={processQueue}
+                  disabled={!canProcess}
+                  type="button"
+                  className="h-11 w-full gap-2"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Generating captions...
+                    </>
                   ) : (
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      Select or add a video to begin.
-                    </p>
+                    <>
+                      <Wand2 className="size-4" />
+                      Run caption pipeline
+                    </>
                   )}
-                </div>
+                </Button>
 
-                <div className="rounded-lg border border-border bg-muted/30 p-4">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Sparkles className="size-4 text-muted-foreground" />
-                    Caption styles
+                {formError && (
+                  <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                    <span>{formError}</span>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Badge variant="outline" className="gap-1.5 border-blue-500/30">
-                      <BookOpenText className="size-3" />
-                      Formal
-                    </Badge>
-                    <Badge variant="outline" className="gap-1.5 border-amber-500/30">
-                      <Flame className="size-3" />
-                      Sarcastic
-                    </Badge>
-                    <Badge variant="outline" className="gap-1.5 border-violet-500/30">
-                      <Cpu className="size-3" />
-                      Tech
-                    </Badge>
-                    <Badge variant="outline" className="gap-1.5 border-pink-500/30">
-                      <PartyPopper className="size-3" />
-                      Casual
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border bg-muted/30 p-4 sm:col-span-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium">Batch readiness</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {totalQueued > 0
-                          ? `${totalQueued} video${totalQueued === 1 ? "" : "s"} queued for caption generation.`
-                          : "Queue is empty."}
-                      </p>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "shrink-0",
-                        canProcess
-                          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-                          : "border-border text-muted-foreground",
-                      )}
-                    >
-                      {canProcess ? "Ready" : "Waiting"}
-                    </Badge>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          <div className="space-y-6">
-            <Card className="border-border/80 shadow-sm">
+          <div>
+            <Card className="h-full border-border/80 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <MonitorPlay className="size-4 text-muted-foreground" />
@@ -576,86 +573,6 @@ export function CaptionStudio() {
                 )}
               </CardContent>
             </Card>
-
-          <Card className="border-border/80 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Queue summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-lg border border-border bg-gradient-to-br from-primary/5 to-transparent p-4">
-                <p className="text-sm text-muted-foreground">Total queued videos</p>
-                <p className="mt-1 text-3xl font-semibold tabular-nums">{totalQueued}</p>
-              </div>
-
-              <dl className="space-y-2 text-sm">
-                <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-                  <dt className="flex items-center gap-2 text-muted-foreground">
-                    <Film className="size-3.5" />
-                    Local files
-                  </dt>
-                  <dd className="font-medium tabular-nums">{files.length}</dd>
-                </div>
-                <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2">
-                  <dt className="flex items-center gap-2 text-muted-foreground">
-                    <Link2 className="size-3.5" />
-                    Video URLs
-                  </dt>
-                  <dd className="font-medium tabular-nums">{urlQueue.length}</dd>
-                </div>
-              </dl>
-
-              <div className="rounded-md border border-border bg-background p-3 text-xs">
-                {health ? (
-                  <p
-                    className={cn(
-                      "flex items-center gap-1.5",
-                      health.api_configured ? "text-muted-foreground" : "text-destructive",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "size-1.5 shrink-0 rounded-full",
-                        health.api_configured ? "bg-emerald-500" : "bg-destructive",
-                      )}
-                    />
-                    Backend online.{" "}
-                    {health.api_configured ? "Models configured." : "Add API key and model names."}
-                  </p>
-                ) : (
-                  <p className="flex items-center gap-1.5 text-destructive">
-                    <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
-                    {healthError || "Checking backend..."}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                onClick={processQueue}
-                disabled={!canProcess}
-                type="button"
-                className="h-11 w-full gap-2"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Generating captions...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="size-4" />
-                    Run caption pipeline
-                  </>
-                )}
-              </Button>
-
-              {formError && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
           </div>
         </section>
 
