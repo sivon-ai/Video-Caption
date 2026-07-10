@@ -54,7 +54,7 @@ class Settings:
         default_factory=lambda: _csv(
             os.getenv(
                 "CORS_ORIGINS",
-                "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000",
+                "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://video-caption-gold.vercel.app",
             )
         )
     )

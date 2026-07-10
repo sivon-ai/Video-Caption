@@ -80,6 +80,13 @@ Frontend default backend URL is `http://localhost:8000`. Override it with:
 VITE_BACKEND_URL=http://localhost:8000
 ```
 
+For the deployed frontend, set Vercel's `VITE_BACKEND_URL` to your Render backend URL.
+The backend CORS defaults already allow:
+
+```env
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://video-caption-gold.vercel.app
+```
+
 ## Run Batch Mode
 
 Put videos in `backend/videos`, then run:
