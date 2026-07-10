@@ -160,7 +160,7 @@ The Docker image runs the backend batch entrypoint. It reads configuration from 
 Public image:
 
 ```text
-elsondocker16/video-caption:latest
+[elsondocker16/video-caption:latest](https://hub.docker.com/r/elsondocker16/video-caption)
 ```
 
 Build locally:
