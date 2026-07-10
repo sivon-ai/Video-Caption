@@ -1,89 +1,104 @@
 # AI Video Captioning Studio
 
-AI Video Captioning Studio is a full-stack hackathon project that generates four styled captions for each video:
+AI Video Captioning Studio is a full-stack project that generates four styled captions for each video:
 
 - Formal
 - Sarcastic
 - Humorous-Tech
 - Humorous-Non-Tech
 
-The frontend lets a user queue local video files or direct video URLs. The Python backend extracts representative frames, sends those frames to a vision-language model for a factual scene description and one neutral caption, then sends one text-generation request to rewrite that neutral caption into all four required styles.
+The frontend lets users upload local videos or add direct video URLs, preview the active video, monitor queue/backend status, and run the caption pipeline. The Python backend extracts representative frames, asks a vision-language model for a factual description and neutral caption, then rewrites that caption into all four styles.
+
+## Latest Features
+
+- Local video upload with drag-and-drop support.
+- Direct video URL queueing with duplicate prevention.
+- Video preview panel for uploaded files and URL videos.
+- Compact queue counters for total videos, local files, and URLs.
+- Backend health/status badge in the main UI.
+- Single `Run caption pipeline` action in the upload workflow.
+- Generated caption results with success/failure counts and saved output path.
+- FastAPI backend with `/health` and `/api/captions/process`.
+- CLI batch mode through `python app.py`.
+- Dockerized Linux backend image with working `ENTRYPOINT`.
+- Public Docker Hub image: `elsondocker16/video-caption:latest`.
 
 ## What The Project Does
 
 1. Accepts videos from the web UI or from `backend/videos`.
-2. Extracts about 8 to 12 representative frames instead of processing every frame.
+2. Extracts representative frames instead of processing every frame.
 3. Removes duplicate-looking frames and skips very blurry, very dark, or overexposed frames.
-4. Asks a vision model for a factual description and neutral caption.
-5. Captures an optional chronological scene timeline from visible events.
-6. Rewrites the neutral caption into four styles in one model call.
+4. Sends sampled frames to a vision model for a factual description and neutral caption.
+5. Captures an optional chronological scene timeline.
+6. Rewrites the neutral caption into four required caption styles in one model call.
 7. Validates model JSON with Pydantic.
 8. Saves caption output as JSON in `backend/outputs`.
 9. Logs processing details and errors in `backend/logs`.
 
-No dataset is required for normal usage. You only need videos, an API key, a vision-capable model, and a text model. A dataset is only needed if you want to fine-tune models or benchmark quality.
+No dataset is required for normal usage. You only need videos, an API key, a vision-capable model, and a text model.
 
-## File Architecture
+## Project Structure
 
 ```text
 Video Caption/
-├── Dockerfile
-├── .dockerignore
-├── README.md
-├── backend/
-│   ├── app.py
-│   ├── api.py
-│   ├── config.py
-│   ├── requirements.txt
-│   ├── .env.example
-│   ├── README.md
-│   ├── videos/
-│   ├── outputs/
-│   ├── logs/
-│   ├── prompts/
-│   │   ├── vision_prompt.txt
-│   │   └── rewrite_prompt.txt
-│   └── src/
-│       ├── frame_extractor.py
-│       ├── video_processor.py
-│       ├── fireworks_client.py
-│       ├── caption_generator.py
-│       ├── style_generator.py
-│       ├── validator.py
-│       ├── models.py
-│       └── utils.py
-└── frontend/
-    ├── package.json
-    ├── vite.config.ts
-    └── src/
-        ├── components/
-        │   └── CaptionStudio.tsx
-        └── routes/
-            └── index.tsx
+|-- Dockerfile
+|-- .dockerignore
+|-- README.md
+|-- backend/
+|   |-- app.py
+|   |-- api.py
+|   |-- config.py
+|   |-- requirements.txt
+|   |-- .env.example
+|   |-- videos/
+|   |-- outputs/
+|   |-- logs/
+|   |-- prompts/
+|   |   |-- vision_prompt.txt
+|   |   `-- rewrite_prompt.txt
+|   `-- src/
+|       |-- frame_extractor.py
+|       |-- video_processor.py
+|       |-- fireworks_client.py
+|       |-- caption_generator.py
+|       |-- style_generator.py
+|       |-- validator.py
+|       |-- models.py
+|       `-- utils.py
+`-- frontend/
+    |-- package.json
+    |-- vite.config.ts
+    `-- src/
+        |-- components/
+        |   `-- CaptionStudio.tsx
+        `-- routes/
+            `-- index.tsx
 ```
 
-## Backend Modules
+## Backend
 
-- `backend/app.py`: CLI entry point. Running `python app.py` processes every video in `backend/videos`.
-- `backend/api.py`: FastAPI service used by the frontend. Exposes `/health` and `/api/captions/process`.
+- `backend/app.py`: CLI entry point. Processes every video in `backend/videos`.
+- `backend/api.py`: FastAPI service used by the frontend.
 - `backend/config.py`: Loads `.env` settings, model names, API key, limits, CORS origins, and folder paths.
-- `backend/src/frame_extractor.py`: Uses OpenCV to sample representative frames, remove duplicates, and skip low-quality frames.
-- `backend/src/fireworks_client.py`: OpenAI-compatible chat completions client with retries, timeouts, API latency tracking, and token usage capture.
-- `backend/src/caption_generator.py`: Sends sampled frames to the vision model and validates the factual response.
-- `backend/src/style_generator.py`: Converts the neutral caption into all four caption styles in one text-model request.
+- `backend/src/frame_extractor.py`: Samples representative frames with OpenCV.
+- `backend/src/fireworks_client.py`: OpenAI-compatible chat completions client with retries and timeouts.
+- `backend/src/caption_generator.py`: Generates factual video descriptions and neutral captions.
+- `backend/src/style_generator.py`: Generates all four styled captions in one text-model request.
 - `backend/src/validator.py`: Extracts and validates strict JSON responses.
-- `backend/src/video_processor.py`: Orchestrates processing, optional parallel workers, logging, progress display, error collection, and output writing.
+- `backend/src/video_processor.py`: Orchestrates processing, logging, errors, stats, and output writing.
 
-## Frontend Integration
+## Frontend
 
-The frontend route renders `CaptionStudio`, which:
+The frontend route renders `CaptionStudio`, which supports:
 
-- Accepts local files and direct video URLs.
-- Sends queued videos to `POST http://localhost:8000/api/captions/process` as `FormData`.
-- Checks backend status with `GET http://localhost:8000/health`.
-- Shows processing state, API errors, saved output path, and generated captions.
+- Local upload and paste-URL modes.
+- Active video preview with browser video controls.
+- Queue count badges for local files and URLs.
+- Backend readiness badge from `GET /health`.
+- One primary `Run caption pipeline` button.
+- Generated caption cards for each processed video.
 
-Set `VITE_BACKEND_URL` in the frontend environment if your backend is not running on `http://localhost:8000`.
+Set `VITE_BACKEND_URL` if the backend is not running on `http://localhost:8000`.
 
 ## Setup
 
@@ -109,38 +124,6 @@ MAX_WORKERS=1
 
 The backend expects an OpenAI-compatible chat completions API that supports image inputs through `image_url` message content.
 
-### Docker
-
-The Docker image runs the backend batch entrypoint. It reads configuration from environment variables, not from a copied `.env` file.
-
-Build the image:
-
-```bash
-docker build -t your-dockerhub-username/video-caption:latest .
-```
-
-Run the image in batch mode:
-
-```bash
-docker run --rm \
-  -e API_KEY="$API_KEY" \
-  -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
-  -e VISION_MODEL="$VISION_MODEL" \
-  -e TEXT_MODEL="$TEXT_MODEL" \
-  -v "$(pwd)/backend/videos:/app/videos" \
-  -v "$(pwd)/backend/outputs:/app/outputs" \
-  your-dockerhub-username/video-caption:latest
-```
-
-With no videos mounted, the entrypoint still runs and writes an empty JSON array to `/app/outputs/captions.json`.
-
-Publish the final public image after replacing the tag with your Docker Hub repository:
-
-```bash
-docker login
-docker push your-dockerhub-username/video-caption:latest
-```
-
 ### Frontend
 
 ```bash
@@ -148,7 +131,7 @@ cd frontend
 npm install
 ```
 
-## Running The Project
+## Running Locally
 
 Start the backend API:
 
@@ -170,6 +153,56 @@ Open the frontend URL shown by Vite, usually:
 http://localhost:5173
 ```
 
+## Docker
+
+The Docker image runs the backend batch entrypoint. It reads configuration from environment variables instead of copying `.env` into the image.
+
+Public image:
+
+```text
+elsondocker16/video-caption:latest
+```
+
+Build locally:
+
+```bash
+docker build -t elsondocker16/video-caption:latest .
+```
+
+Run batch mode with mounted folders:
+
+```bash
+docker run --rm \
+  -e API_KEY="$API_KEY" \
+  -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
+  -e VISION_MODEL="$VISION_MODEL" \
+  -e TEXT_MODEL="$TEXT_MODEL" \
+  -v "$(pwd)/backend/videos:/app/videos" \
+  -v "$(pwd)/backend/outputs:/app/outputs" \
+  elsondocker16/video-caption:latest
+```
+
+Pull the public image:
+
+```bash
+docker pull elsondocker16/video-caption:latest
+```
+
+Push the image:
+
+```bash
+docker login
+docker push elsondocker16/video-caption:latest
+```
+
+The image entrypoint is:
+
+```json
+["python", "app.py"]
+```
+
+With no videos mounted, the entrypoint still runs and writes an empty JSON array to `/app/outputs/captions.json`.
+
 ## Batch Mode
 
 For CLI processing, place videos in `backend/videos`, then run:
@@ -189,7 +222,7 @@ backend/outputs/captions.json
 
 ### `GET /health`
 
-Returns service status and whether API settings are ready.
+Returns service status and whether API settings are configured.
 
 ### `POST /api/captions/process`
 
@@ -206,41 +239,59 @@ Returns generated captions, processing statistics, per-video errors, and the out
 [
   {
     "video": "example.mp4",
+    "neutral": "A person walks across a room while holding a bag.",
+    "factual_description": "A person moves through an indoor room carrying a bag.",
+    "scene_timeline": ["The person enters the frame.", "The person walks across the room."],
     "formal": "A person walks across a room while holding a bag.",
     "sarcastic": "A person heroically completes the advanced mission of walking across a room with a bag.",
     "humorous_tech": "A person runs walkAcrossRoom() with bag mode enabled.",
-    "humorous_non_tech": "A person crosses the room with a bag like they have somewhere important to be."
+    "humorous_non_tech": "A person crosses the room with a bag like they have somewhere important to be.",
+    "frame_count": 12,
+    "processing_seconds": 8.42
   }
 ]
 ```
 
+## Submission Checklist
+
+- Docker builds: verified.
+- Docker runs: verified.
+- API key via environment variable: implemented and verified.
+- `requirements.txt` complete: verified during Docker build.
+- No Windows paths required for setup/runtime: implemented.
+- Works on Linux: verified with Docker Linux image.
+- Produces output JSON: verified.
+- Docker image is public: `elsondocker16/video-caption:latest`.
+- Correct image tag: `elsondocker16/video-caption:latest`.
+- ENTRYPOINT works: `["python", "app.py"]`.
+
 ## Implementation Checklist
 
-- Python 3.11+ backend: implemented.
-- OpenCV frame extraction: implemented.
-- FFmpeg/MoviePy dependency support: included in requirements.
-- Requests, python-dotenv, tqdm, pydantic, and loguru: included.
-- Fireworks/OpenAI-compatible API support: implemented through chat completions.
-- `.env` configuration: implemented with `.env.example`.
-- Representative frame sampling: implemented.
-- Duplicate frame removal: implemented.
-- Basic frame quality filtering: implemented.
-- Scene timeline metadata: implemented in API responses.
-- Factual vision prompt: implemented.
-- One neutral caption: implemented.
-- One style-generation request for all four captions: implemented.
-- JSON-only validation: implemented with Pydantic.
-- API retries, timeouts, and retryable rate-limit/server-error handling: implemented.
-- Logging: implemented with Loguru.
-- Configurable parallel workers: implemented with `MAX_WORKERS`, defaulting to `1` for rate-limit safety.
-- Frontend connection: implemented with FastAPI endpoints.
-- CLI batch mode: implemented with `python app.py`.
-- Docker batch image: implemented with root `Dockerfile`.
-- Docker entrypoint: implemented as `python app.py`.
+- Python 3.11+ backend.
+- FastAPI backend endpoints.
+- React/TanStack frontend interface.
+- OpenCV frame extraction.
+- FFmpeg/MoviePy dependency support.
+- Fireworks/OpenAI-compatible API support.
+- `.env` configuration with `.env.example`.
+- Representative frame sampling.
+- Duplicate frame removal.
+- Basic frame quality filtering.
+- Scene timeline metadata.
+- Factual vision prompt.
+- One neutral caption.
+- One style-generation request for all four captions.
+- JSON-only validation with Pydantic.
+- API retries, timeouts, and retryable rate-limit/server-error handling.
+- Logging with Loguru.
+- Configurable parallel workers through `MAX_WORKERS`.
+- CLI batch mode.
+- Docker batch image.
+- Public Docker Hub image.
 
-## Current Requirement Before Real Captioning
+## Requirement Before Real Captioning
 
-The code is wired and runnable, but real caption generation needs valid values in `backend/.env`:
+Real caption generation requires valid values in `backend/.env` or environment variables:
 
 - `API_KEY`
 - `VISION_MODEL`

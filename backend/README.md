@@ -37,7 +37,7 @@ Any OpenAI-compatible chat completions endpoint should work if it accepts image 
 Build from the project root:
 
 ```bash
-docker build -t your-dockerhub-username/video-caption:latest .
+docker build -t elsondocker16/video-caption:latest .
 ```
 
 Run the backend entrypoint with environment variables:
@@ -50,7 +50,7 @@ docker run --rm \
   -e TEXT_MODEL="$TEXT_MODEL" \
   -v "$(pwd)/backend/videos:/app/videos" \
   -v "$(pwd)/backend/outputs:/app/outputs" \
-  your-dockerhub-username/video-caption:latest
+  elsondocker16/video-caption:latest
 ```
 
 The image entrypoint is `python app.py`, so it writes batch output JSON to `/app/outputs/captions.json`.
