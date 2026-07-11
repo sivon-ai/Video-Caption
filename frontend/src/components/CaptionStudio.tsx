@@ -30,6 +30,21 @@ const API_BASE_URL = (
   (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? "http://localhost:8000"
 ).replace(/\/$/, "");
 
+function getBlockedMixedContentMessage() {
+  if (typeof window === "undefined") return "";
+
+  try {
+    const apiUrl = new URL(API_BASE_URL, window.location.href);
+    if (window.location.protocol === "https:" && apiUrl.protocol === "http:") {
+      return `HTTPS frontend cannot call HTTP backend at ${API_BASE_URL}. Use an HTTPS backend URL.`;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 interface LocalVideoItem {
   id: string;
   name: string;
@@ -136,6 +151,15 @@ export function CaptionStudio() {
 
   useEffect(() => {
     let cancelled = false;
+    const mixedContentMessage = getBlockedMixedContentMessage();
+
+    if (mixedContentMessage) {
+      setHealth(null);
+      setHealthError(mixedContentMessage);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     fetch(`${API_BASE_URL}/health`)
       .then(async (res) => {

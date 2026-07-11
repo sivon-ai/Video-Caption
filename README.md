@@ -102,6 +102,13 @@ The frontend route renders `CaptionStudio`, which supports:
 
 Set `VITE_BACKEND_URL` if the backend is not running on `http://localhost:8000`.
 
+For a Vercel deployment, `VITE_BACKEND_URL` must be an HTTPS URL. Browsers block
+requests from `https://video-caption-gold.vercel.app` to a plain `http://`
+backend as mixed content, even when the backend itself is running. Put the
+FastAPI service behind HTTPS through a domain with TLS, a reverse proxy such as
+Caddy or Nginx with Let's Encrypt, or a hosting provider that gives the backend
+an HTTPS URL, then update the Vercel environment variable.
+
 ## Setup
 
 ### Backend
