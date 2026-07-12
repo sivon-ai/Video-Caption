@@ -37,7 +37,8 @@ class VideoProcessor:
             frames = extract_representative_frames(video_path)
             duration_seconds = max((frame.video_duration_seconds for frame in frames), default=0.0)
             description, neutral, timeline, vision_meta = self.caption_generator.generate(video_path, frames)
-            if duration_seconds <= settings.fast_style_max_seconds:
+            fast_style_max_seconds = getattr(settings, "fast_style_max_seconds", 8)
+            if duration_seconds <= fast_style_max_seconds:
                 captions, style_meta = self.style_generator.generate_fast(
                     neutral,
                     factual_description=description,

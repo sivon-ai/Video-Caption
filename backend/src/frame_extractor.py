@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,10 +23,20 @@ class FrameExtractionError(RuntimeError):
     """Raised when OpenCV cannot read useful frames from a video."""
 
 
+def _int_setting(name: str, env_name: str, default: int) -> int:
+    value = getattr(settings, name, None)
+    if value is None:
+        value = os.getenv(env_name, str(default))
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _target_frame_count(duration_seconds: float) -> int:
-    max_frames = max(1, settings.max_frames)
+    max_frames = max(1, _int_setting("max_frames", "MAX_FRAMES", 10))
     if duration_seconds <= 0:
-        return min(max_frames, max(1, settings.min_frames))
+        return min(max_frames, max(1, _int_setting("min_frames", "MIN_FRAMES", 2)))
     if duration_seconds <= 8:
         target = 2
     elif duration_seconds <= 15:
@@ -40,8 +51,8 @@ def _target_frame_count(duration_seconds: float) -> int:
 
 
 def _target_frame_edge(duration_seconds: float) -> int:
-    max_edge = max(160, settings.max_frame_edge)
-    min_edge = max(160, min(settings.min_frame_edge, max_edge))
+    max_edge = max(160, _int_setting("max_frame_edge", "MAX_FRAME_EDGE", 640))
+    min_edge = max(160, min(_int_setting("min_frame_edge", "MIN_FRAME_EDGE", 448), max_edge))
     if duration_seconds <= 8:
         target = 448
     elif duration_seconds <= 15:
@@ -100,10 +111,11 @@ def extract_representative_frames(video_path: Path) -> list[FrameSample]:
             raise FrameExtractionError(f"Video has invalid frame metadata: {video_path.name}")
 
         duration = frame_count / fps
-        if duration > settings.max_video_seconds:
+        max_video_seconds = _int_setting("max_video_seconds", "MAX_VIDEO_SECONDS", 65)
+        if duration > max_video_seconds:
             raise FrameExtractionError(
                 f"{video_path.name} is {duration:.1f}s long; max supported duration is "
-                f"{settings.max_video_seconds}s."
+                f"{max_video_seconds}s."
             )
 
         requested = _target_frame_count(duration)
@@ -138,7 +150,7 @@ def extract_representative_frames(video_path: Path) -> list[FrameSample]:
             index, timestamp, frame = fallback_frames[0]
             samples.append(FrameSample(index, timestamp, _encode_frame(frame, max_edge), round(duration, 2)))
 
-        minimum_samples = min(requested, max(1, settings.min_frames))
+        minimum_samples = min(requested, max(1, _int_setting("min_frames", "MIN_FRAMES", 2)))
         if len(samples) < minimum_samples:
             used_indexes = {sample.index for sample in samples}
             for index, timestamp, frame in fallback_frames:
@@ -159,7 +171,7 @@ def extract_representative_frames(video_path: Path) -> list[FrameSample]:
 
 def _encode_frame(frame: np.ndarray, max_edge: int) -> str:
     frame = _resize_for_model(frame, max_edge)
-    encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), settings.jpeg_quality]
+    encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), _int_setting("jpeg_quality", "JPEG_QUALITY", 68)]
     ok, buffer = cv2.imencode(".jpg", frame, encode_params)
     if not ok:
         raise FrameExtractionError("Failed to encode video frame as JPEG")

@@ -47,8 +47,8 @@ def health() -> dict[str, object]:
             "jpeg_quality": settings.jpeg_quality,
             "max_frame_edge": settings.max_frame_edge,
             "min_frame_edge": settings.min_frame_edge,
-            "max_video_seconds": settings.max_video_seconds,
-            "fast_style_max_seconds": settings.fast_style_max_seconds,
+            "max_video_seconds": getattr(settings, "max_video_seconds", 65),
+            "fast_style_max_seconds": getattr(settings, "fast_style_max_seconds", 8),
         },
     }
 
