@@ -10,6 +10,18 @@ from src.frame_extractor import FrameSample
 from src.validator import InvalidModelResponseError, clean_caption_text, validate_vision_payload
 
 
+def _duration_seconds(frames: list[FrameSample]) -> float:
+    return max((frame.video_duration_seconds for frame in frames), default=0.0)
+
+
+def _vision_token_budget(duration_seconds: float) -> int:
+    if duration_seconds <= 8:
+        return min(settings.max_tokens, 700)
+    if duration_seconds <= 15:
+        return min(settings.max_tokens, 900)
+    return settings.max_tokens
+
+
 class CaptionGenerator:
     def __init__(self, client: FireworksClient | None = None) -> None:
         self.client = client or FireworksClient()
@@ -18,12 +30,26 @@ class CaptionGenerator:
     def generate(
         self, video_path: Path, frames: list[FrameSample]
     ) -> tuple[str, str, list[str], dict[str, Any]]:
+        duration_seconds = _duration_seconds(frames)
+        short_video_instruction = ""
+        if duration_seconds <= 8:
+            short_video_instruction = (
+                f"\nThis is a very short {duration_seconds:.1f}s video. Keep the JSON compact: "
+                "factual_description 35-70 words, scene_timeline 2-3 short events, "
+                "neutral_caption 1-2 concise sentences. Do not over-describe static background details."
+            )
+        elif duration_seconds <= 15:
+            short_video_instruction = (
+                f"\nThis is a short {duration_seconds:.1f}s video. Keep the JSON concise: "
+                "factual_description 50-90 words, scene_timeline 2-4 short events, "
+                "neutral_caption 1-2 concise sentences."
+            )
         frame_manifest = "\n".join(
             f"- frame {frame.index} at {frame.timestamp_seconds}s" for frame in frames
         )
         text = (
             "/no_think\n"
-            f"{self.prompt}\n\n"
+            f"{self.prompt}{short_video_instruction}\n\n"
             f"Video file: {video_path.name}\n"
             f"Sampled frames:\n{frame_manifest}\n\n"
             "Return final JSON only. Do not include thinking, analysis, markdown, or explanations."
@@ -44,14 +70,17 @@ class CaptionGenerator:
             model=settings.vision_model,
             messages=[{"role": "user", "content": content}],
             temperature=0.1,
-            max_tokens=settings.max_tokens,
+            max_tokens=_vision_token_budget(duration_seconds),
             response_format=None,
         )
         try:
             description, neutral, timeline = validate_vision_payload(raw)
         except InvalidModelResponseError as first_error:
             try:
-                retried, retry_meta = self._retry_vision_json(content)
+                retried, retry_meta = self._retry_vision_json(
+                    content,
+                    max_tokens=_vision_token_budget(duration_seconds),
+                )
                 description, neutral, timeline = validate_vision_payload(retried)
                 meta["retry"] = retry_meta
                 return description, neutral, timeline, meta
@@ -59,7 +88,10 @@ class CaptionGenerator:
                 meta["retry_error"] = str(retry_error)
 
             try:
-                repaired, repair_meta = self._repair_vision_json(raw)
+                repaired, repair_meta = self._repair_vision_json(
+                    raw,
+                    max_tokens=_vision_token_budget(duration_seconds),
+                )
                 description, neutral, timeline = validate_vision_payload(repaired)
                 meta["repair"] = repair_meta
             except InvalidModelResponseError as repair_error:
@@ -75,7 +107,12 @@ class CaptionGenerator:
                 }
         return description, neutral, timeline, meta
 
-    def _retry_vision_json(self, original_content: list[dict[str, Any]]) -> tuple[str, dict[str, Any]]:
+    def _retry_vision_json(
+        self,
+        original_content: list[dict[str, Any]],
+        *,
+        max_tokens: int,
+    ) -> tuple[str, dict[str, Any]]:
         retry_content = list(original_content)
         retry_content[0] = {
             "type": "text",
@@ -91,11 +128,11 @@ class CaptionGenerator:
             model=settings.vision_model,
             messages=[{"role": "user", "content": retry_content}],
             temperature=0,
-            max_tokens=settings.max_tokens,
+            max_tokens=max_tokens,
             response_format=None,
         )
 
-    def _repair_vision_json(self, raw_response: str) -> tuple[str, dict[str, Any]]:
+    def _repair_vision_json(self, raw_response: str, *, max_tokens: int) -> tuple[str, dict[str, Any]]:
         return self.client.chat_completion(
             model=settings.text_model,
             messages=[
@@ -112,7 +149,7 @@ class CaptionGenerator:
                 {"role": "user", "content": raw_response},
             ],
             temperature=0,
-            max_tokens=settings.max_tokens,
+            max_tokens=max_tokens,
             response_format={"type": "json_object"},
         )
 

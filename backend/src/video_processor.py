@@ -35,12 +35,21 @@ class VideoProcessor:
         logger.info("Processing video {}", video_path.name)
         with timer() as elapsed:
             frames = extract_representative_frames(video_path)
+            duration_seconds = max((frame.video_duration_seconds for frame in frames), default=0.0)
             description, neutral, timeline, vision_meta = self.caption_generator.generate(video_path, frames)
-            captions, style_meta = self.style_generator.generate(
-                neutral,
-                factual_description=description,
-                scene_timeline=timeline,
-            )
+            if duration_seconds <= settings.fast_style_max_seconds:
+                captions, style_meta = self.style_generator.generate_fast(
+                    neutral,
+                    factual_description=description,
+                    scene_timeline=timeline,
+                )
+            else:
+                captions, style_meta = self.style_generator.generate(
+                    neutral,
+                    factual_description=description,
+                    scene_timeline=timeline,
+                    duration_seconds=duration_seconds,
+                )
 
             token_usage = {
                 "vision": vision_meta.get("usage", {}),
@@ -49,6 +58,7 @@ class VideoProcessor:
                     "vision": vision_meta.get("latency_seconds"),
                     "style": style_meta.get("latency_seconds"),
                 },
+                "video_duration_seconds": duration_seconds,
             }
             result = VideoCaptionResult(
                 video=video_path.name,

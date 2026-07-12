@@ -41,6 +41,15 @@ def health() -> dict[str, object]:
         "api_configured": settings.is_api_configured,
         "vision_model": settings.vision_model,
         "text_model": settings.text_model,
+        "sampling": {
+            "min_frames": settings.min_frames,
+            "max_frames": settings.max_frames,
+            "jpeg_quality": settings.jpeg_quality,
+            "max_frame_edge": settings.max_frame_edge,
+            "min_frame_edge": settings.min_frame_edge,
+            "max_video_seconds": settings.max_video_seconds,
+            "fast_style_max_seconds": settings.fast_style_max_seconds,
+        },
     }
 
 

@@ -134,7 +134,14 @@
 
 @layer base {
   * {
+    box-sizing: border-box;
     border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {

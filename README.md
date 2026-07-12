@@ -128,10 +128,24 @@ API_KEY=your_api_key
 API_BASE_URL=https://api.fireworks.ai/inference/v1
 VISION_MODEL=your_vision_model
 TEXT_MODEL=your_text_model
+REQUEST_TIMEOUT=45
+MAX_RETRIES=2
 MAX_WORKERS=1
+MIN_FRAMES=2
+MAX_FRAMES=10
+JPEG_QUALITY=68
+MAX_FRAME_EDGE=640
+MIN_FRAME_EDGE=448
+MAX_VIDEO_SECONDS=65
+FAST_STYLE_MAX_SECONDS=8
 ```
 
 The backend expects an OpenAI-compatible chat completions API that supports image inputs through `image_url` message content.
+For short uploads, frame sampling is adaptive: clips up to 8 seconds use 2 frames,
+up to 15 seconds use 4, up to 20 seconds use 6, up to 35 seconds use 8, and
+longer clips up to about one minute use 10. Clips up to `FAST_STYLE_MAX_SECONDS`
+use one vision-model request and local style rewrites, avoiding the second model
+call so evaluation runtime stays low.
 
 ### Frontend
 

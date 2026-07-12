@@ -306,7 +306,7 @@ export function CaptionStudio() {
   const removeUrl = (url: string) => setUrlQueue((prev) => prev.filter((item) => item !== url));
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-32 left-1/2 h-96 w-[64rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-chart-2/10 blur-3xl" />
@@ -367,9 +367,9 @@ export function CaptionStudio() {
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <Card className="border-border/80 shadow-sm">
-            <CardContent className="flex h-full flex-col p-5 sm:p-6">
+        <section className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <Card className="min-w-0 border-border/80 shadow-sm">
+            <CardContent className="flex h-full min-w-0 flex-col p-5 sm:p-6">
               <Tabs value={mode} onValueChange={(value) => setMode(value as "local" | "url")}>
                 <TabsList className="mb-5">
                   <TabsTrigger value="local" className="gap-1.5">
@@ -462,9 +462,9 @@ export function CaptionStudio() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <div className="relative w-full">
+                <div className="min-w-0 space-y-4">
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+                    <div className="relative min-w-0 flex-1">
                       <Link2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <input
                         type="url"
@@ -474,7 +474,7 @@ export function CaptionStudio() {
                           if (event.key === "Enter") addUrl();
                         }}
                         placeholder="https://example.com/video.mp4"
-                        className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none ring-ring transition focus-visible:ring-2"
+                        className="h-10 w-full min-w-0 rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none ring-ring transition focus-visible:ring-2"
                         aria-label="Video URL"
                       />
                     </div>
@@ -493,7 +493,7 @@ export function CaptionStudio() {
                         <li
                           key={url}
                           className={cn(
-                            "flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:border-primary/30",
+                            "flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background px-3 py-2.5 transition-colors hover:border-primary/30",
                             activePreview?.id === url ? "border-primary/50" : "border-border",
                           )}
                         >
@@ -505,7 +505,7 @@ export function CaptionStudio() {
                             <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
                               <Link2 className="size-4" />
                             </span>
-                            <p className="min-w-0 truncate text-sm">{url}</p>
+                            <p className="min-w-0 max-w-full truncate text-sm">{url}</p>
                           </button>
                           <Button
                             onClick={() => removeUrl(url)}
@@ -553,8 +553,8 @@ export function CaptionStudio() {
             </CardContent>
           </Card>
 
-          <div>
-            <Card className="h-full border-border/80 shadow-sm">
+          <div className="min-w-0">
+            <Card className="h-full min-w-0 border-border/80 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <MonitorPlay className="size-4 text-muted-foreground" />
@@ -583,8 +583,8 @@ export function CaptionStudio() {
                   )}
                 </div>
                 {activePreview ? (
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{activePreview.title}</p>
+                  <div className="min-w-0 max-w-full overflow-hidden">
+                    <p className="max-w-full truncate text-sm font-medium">{activePreview.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {activePreview.source === "local" ? "Local preview" : "URL preview"} -{" "}
                       {activePreview.subtitle}
@@ -601,9 +601,9 @@ export function CaptionStudio() {
         </section>
 
         {response && (
-          <section className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
+          <section className="min-w-0 space-y-4">
+            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
                   <Sparkles className="size-5 text-primary" />
                   Generated captions
@@ -628,19 +628,19 @@ export function CaptionStudio() {
                   <span>in {response.stats.processing_seconds}s</span>
                 </p>
               </div>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="min-w-0 max-w-full truncate text-xs text-muted-foreground sm:max-w-[55%]">
                 Saved to {response.output_file}
               </p>
             </div>
 
-            <div className="grid gap-4">
+            <div className="grid min-w-0 gap-4">
               {response.results.map((result) => (
-                <Card key={result.video} className="border-border/80 shadow-sm">
+                <Card key={result.video} className="min-w-0 border-border/80 shadow-sm">
                   <CardContent className="p-5">
                     <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="flex items-center gap-2 truncate text-base font-semibold">
+                      <h3 className="flex min-w-0 items-center gap-2 truncate text-base font-semibold">
                         <FileVideo className="size-4 shrink-0 text-muted-foreground" />
-                        {result.video}
+                        <span className="min-w-0 truncate">{result.video}</span>
                       </h3>
                       <p className="text-xs text-muted-foreground">
                         {result.frame_count} frames · {result.processing_seconds}s
