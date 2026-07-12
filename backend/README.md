@@ -29,7 +29,8 @@ VISION_MODEL=your_vision_model
 TEXT_MODEL=your_text_model
 REQUEST_TIMEOUT=45
 MAX_RETRIES=2
-MAX_WORKERS=1
+MAX_WORKERS=2
+MAX_URL_DOWNLOAD_WORKERS=4
 MIN_FRAMES=2
 MAX_FRAMES=10
 JPEG_QUALITY=68
@@ -45,6 +46,10 @@ up to 15 seconds uses 4, up to 20 seconds uses 6, up to 35 seconds uses 8,
 and longer clips up to about one minute use 10 downscaled frames. Clips up to
 `FAST_STYLE_MAX_SECONDS` use one vision-model request and local style rewrites
 to avoid the second model call.
+
+For batches with multiple URLs, URL downloads run concurrently up to
+`MAX_URL_DOWNLOAD_WORKERS`. Caption generation runs concurrently up to
+`MAX_WORKERS`; increase it only as far as your model provider rate limits allow.
 
 ## Docker Mode
 
@@ -131,7 +136,8 @@ Multipart form fields:
 
 Response includes full metadata plus `outputs/captions-<batch>.json`.
 
-`MAX_WORKERS` can be raised for parallel processing, but `1` is the safest default for rate-limited model APIs.
+`MAX_WORKERS` can be raised for faster multi-video processing, but lower it if
+your model provider starts returning rate-limit errors.
 
 ## Example Output
 

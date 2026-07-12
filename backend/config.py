@@ -40,7 +40,10 @@ class Settings:
     max_tokens: int = field(default_factory=lambda: int(os.getenv("MAX_TOKENS", "1800")))
     request_timeout: int = field(default_factory=lambda: int(os.getenv("REQUEST_TIMEOUT", "45")))
     max_retries: int = field(default_factory=lambda: int(os.getenv("MAX_RETRIES", "2")))
-    max_workers: int = field(default_factory=lambda: int(os.getenv("MAX_WORKERS", "1")))
+    max_workers: int = field(default_factory=lambda: int(os.getenv("MAX_WORKERS", "2")))
+    max_url_download_workers: int = field(
+        default_factory=lambda: int(os.getenv("MAX_URL_DOWNLOAD_WORKERS", "4"))
+    )
 
     min_frames: int = field(default_factory=lambda: int(os.getenv("MIN_FRAMES", "2")))
     max_frames: int = field(default_factory=lambda: int(os.getenv("MAX_FRAMES", "10")))

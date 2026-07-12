@@ -130,7 +130,8 @@ VISION_MODEL=your_vision_model
 TEXT_MODEL=your_text_model
 REQUEST_TIMEOUT=45
 MAX_RETRIES=2
-MAX_WORKERS=1
+MAX_WORKERS=2
+MAX_URL_DOWNLOAD_WORKERS=4
 MIN_FRAMES=2
 MAX_FRAMES=10
 JPEG_QUALITY=68
@@ -146,6 +147,11 @@ up to 15 seconds use 4, up to 20 seconds use 6, up to 35 seconds use 8, and
 longer clips up to about one minute use 10. Clips up to `FAST_STYLE_MAX_SECONDS`
 use one vision-model request and local style rewrites, avoiding the second model
 call so evaluation runtime stays low.
+
+For multi-video or multi-URL batches, `MAX_WORKERS` controls how many videos can
+be captioned in parallel. Raise it only as far as your model provider rate limits
+allow. `MAX_URL_DOWNLOAD_WORKERS` controls URL downloads separately, so several
+linked videos can be fetched at once without increasing model API concurrency.
 
 ### Frontend
 

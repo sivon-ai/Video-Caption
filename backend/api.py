@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
@@ -49,8 +50,33 @@ def health() -> dict[str, object]:
             "min_frame_edge": settings.min_frame_edge,
             "max_video_seconds": getattr(settings, "max_video_seconds", 65),
             "fast_style_max_seconds": getattr(settings, "fast_style_max_seconds", 8),
+            "max_workers": settings.max_workers,
+            "max_url_download_workers": settings.max_url_download_workers,
         },
     }
+
+
+async def _download_url_videos(urls: list[str] | None, batch_dir: Path) -> list[tuple[Path, str]]:
+    queued_urls = [url.strip() for url in urls or [] if url and url.strip()]
+    if not queued_urls:
+        return []
+
+    max_workers = max(1, settings.max_url_download_workers)
+    semaphore = asyncio.Semaphore(max_workers)
+
+    async def download_one(url: str) -> Path:
+        async with semaphore:
+            try:
+                return await asyncio.to_thread(download_video, url, batch_dir, settings)
+            except Exception as exc:
+                logger.exception("URL download failed: {}", url)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Could not download {url}: {exc}",
+                ) from exc
+
+    downloaded = await asyncio.gather(*(download_one(url) for url in queued_urls))
+    return [(path, "url") for path in downloaded]
 
 
 @app.post("/api/captions/process", response_model=BatchResponse)
@@ -85,16 +111,11 @@ async def process_captions(
                 output.write(chunk)
         videos.append((target, "upload"))
 
-    for url in urls or []:
-        try:
-            videos.append((download_video(url, batch_dir, settings), "url"))
-        except Exception as exc:
-            logger.exception("URL download failed: {}", url)
-            raise HTTPException(status_code=400, detail=f"Could not download {url}: {exc}") from exc
+    videos.extend(await _download_url_videos(urls, batch_dir))
 
     output_file = settings.outputs_dir / f"captions-{batch_dir.name}.json"
     try:
         processor = VideoProcessor()
-        return processor.process_paths(videos, output_file)
+        return await asyncio.to_thread(processor.process_paths, videos, output_file)
     except ApiConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
