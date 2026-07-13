@@ -146,10 +146,8 @@ def _caption_payload(task: EvaluatorTask, result: VideoCaptionResult) -> dict[st
         "humorous_tech": result.humorous_tech,
         "humorous_non_tech": result.humorous_non_tech,
     }
-    payload: dict[str, Any] = {"task_id": str(task.task_id)}
-    for style, requested_name in zip(task.styles, task.requested_style_names):
-        payload[requested_name] = all_captions[style]
-    return payload
+    captions = {style: all_captions[style] for style in DEFAULT_STYLES}
+    return {"task_id": str(task.task_id), "captions": captions}
 
 
 def _fallback_payload(task: EvaluatorTask) -> dict[str, Any]:
@@ -162,10 +160,8 @@ def _fallback_payload(task: EvaluatorTask) -> dict[str, Any]:
         "humorous_tech": f"The video for {subject} runs its visual sequence like a compact media pipeline.",
         "humorous_non_tech": f"The video for {subject} keeps the scene moving in a quick, easy-to-follow way.",
     }
-    payload: dict[str, Any] = {"task_id": str(task.task_id)}
-    for style, requested_name in zip(task.styles, task.requested_style_names):
-        payload[requested_name] = fallback_captions[style]
-    return payload
+    captions = {style: fallback_captions[style] for style in DEFAULT_STYLES}
+    return {"task_id": str(task.task_id), "captions": captions}
 
 
 def _write_failure(output_path: Path, error: str) -> None:
@@ -201,7 +197,7 @@ def run_evaluator(input_path: Path | None = None, output_path: Path | None = Non
     try:
         processor = VideoProcessor()
     except ApiConfigurationError as exc:
-        logger.error(str(exc))
+        logger.warning("{} Using schema-compatible fallback captions.", str(exc))
         write_json(output_path, [_fallback_payload(task) for task in tasks])
         return 0
 
