@@ -22,7 +22,7 @@ The frontend lets users upload local videos or add direct video URLs, preview th
 - CLI batch mode through `python app.py`.
 - Dockerized Linux backend image that runs evaluator batch mode by default.
 - Docker API mode remains available with the `api` command.
-- Docker submission tag: `22102005/video-caption:evaluator-20260713`.
+- Docker submission tag: `22102005/video-caption:evaluator-20260713-r2`.
 - Docker Hub page: https://hub.docker.com/r/22102005/video-caption.
 
 ## What The Project Does
@@ -191,7 +191,7 @@ The Docker image runs evaluator batch mode by default. It reads configuration fr
 Submission image tag:
 
 ```text
-22102005/video-caption:evaluator-20260713
+22102005/video-caption:evaluator-20260713-r2
 ```
 
 Docker Hub page: https://hub.docker.com/r/22102005/video-caption
@@ -199,7 +199,7 @@ Docker Hub page: https://hub.docker.com/r/22102005/video-caption
 Build locally:
 
 ```bash
-docker build -t 22102005/video-caption:evaluator-20260713 .
+docker build -t 22102005/video-caption:evaluator-20260713-r2 .
 ```
 
 Run the evaluator locally from Docker:
@@ -212,7 +212,7 @@ docker run --rm \
   -e TEXT_MODEL="$TEXT_MODEL" \
   -v "$(pwd)/input:/input:ro" \
   -v "$(pwd)/output:/output" \
-  22102005/video-caption:evaluator-20260713
+  22102005/video-caption:evaluator-20260713-r2
 ```
 
 The evaluator reads `${TASK_INPUT_PATH:-/input/tasks.json}` and writes `/output/results.json` unless `TASK_OUTPUT_PATH`, `RESULT_OUTPUT_PATH`, or `OUTPUT_PATH` is set.
@@ -226,7 +226,7 @@ docker run --rm \
   -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
   -e VISION_MODEL="$VISION_MODEL" \
   -e TEXT_MODEL="$TEXT_MODEL" \
-  22102005/video-caption:evaluator-20260713 api
+  22102005/video-caption:evaluator-20260713-r2 api
 ```
 
 Run batch mode with mounted folders:
@@ -239,27 +239,27 @@ docker run --rm \
   -e TEXT_MODEL="$TEXT_MODEL" \
   -v "$(pwd)/backend/videos:/app/videos" \
   -v "$(pwd)/backend/outputs:/app/outputs" \
-  22102005/video-caption:evaluator-20260713 batch
+  22102005/video-caption:evaluator-20260713-r2 batch
 ```
 
 Pull the public image:
 
 ```bash
-docker pull 22102005/video-caption:evaluator-20260713
+docker pull 22102005/video-caption:evaluator-20260713-r2
 ```
 
 Push the image:
 
 ```bash
 docker login
-docker push 22102005/video-caption:evaluator-20260713
+docker push 22102005/video-caption:evaluator-20260713-r2
 ```
 
 The image startup is:
 
 ```json
 {
-  "ENTRYPOINT": ["docker-entrypoint.sh"],
+  "ENTRYPOINT": ["/usr/local/bin/docker-entrypoint.sh"],
   "CMD": ["eval"]
 }
 ```
@@ -324,10 +324,10 @@ Returns generated captions, processing statistics, per-video errors, and the out
 - No Windows paths required for setup/runtime: implemented.
 - Works on Linux: verified with Docker Linux image.
 - Produces output JSON: verified.
-- Docker image tag: `22102005/video-caption:evaluator-20260713`.
+- Docker image tag: `22102005/video-caption:evaluator-20260713-r2`.
 - Docker Hub page: https://hub.docker.com/r/22102005/video-caption.
-- Correct image tag: `22102005/video-caption:evaluator-20260713`.
-- ENTRYPOINT works: `["docker-entrypoint.sh"]`.
+- Correct image tag: `22102005/video-caption:evaluator-20260713-r2`.
+- ENTRYPOINT works: `["/usr/local/bin/docker-entrypoint.sh"]`.
 - Evaluator startup works through default `CMD ["eval"]`.
 - Render web startup works with the explicit `api` command.
 

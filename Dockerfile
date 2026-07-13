@@ -21,10 +21,11 @@ COPY backend/app.py backend/api.py backend/evaluator.py backend/config.py ./
 COPY backend/src ./src
 COPY backend/prompts ./prompts
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN mkdir -p videos outputs logs \
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+    && mkdir -p videos outputs logs \
     && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["eval"]
