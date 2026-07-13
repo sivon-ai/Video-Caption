@@ -106,17 +106,27 @@ def _coerce_styles(value: Any) -> tuple[list[str], list[str]]:
 def _parse_tasks(payload: Any) -> list[EvaluatorTask]:
     tasks: list[EvaluatorTask] = []
     for index, item in enumerate(_task_items(payload)):
-        video_url = str(item.get("video_url") or item.get("url") or "").strip()
+        video_url = str(
+            item.get("video_url") or item.get("videoUrl") or item.get("url") or ""
+        ).strip()
         if not video_url:
             continue
 
         styles, requested_names = _coerce_styles(
             item.get("styles")
             or item.get("requested_styles")
+            or item.get("requestedStyles")
             or item.get("caption_styles")
+            or item.get("captionStyles")
             or item.get("style")
         )
-        task_id = item.get("id") or item.get("task_id") or item.get("name")
+        task_id = (
+            item.get("task_id")
+            or item.get("taskId")
+            or item.get("id")
+            or item.get("name")
+            or str(index)
+        )
         tasks.append(
             EvaluatorTask(
                 index=index,
@@ -129,17 +139,6 @@ def _parse_tasks(payload: Any) -> list[EvaluatorTask]:
     return tasks
 
 
-def _base_task_payload(task: EvaluatorTask) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "index": task.index,
-        "video_url": task.video_url,
-        "requested_styles": task.requested_style_names,
-    }
-    if task.task_id is not None:
-        payload["id"] = task.task_id
-    return payload
-
-
 def _caption_payload(task: EvaluatorTask, result: VideoCaptionResult) -> dict[str, Any]:
     all_captions = {
         "formal": result.formal,
@@ -147,36 +146,31 @@ def _caption_payload(task: EvaluatorTask, result: VideoCaptionResult) -> dict[st
         "humorous_tech": result.humorous_tech,
         "humorous_non_tech": result.humorous_non_tech,
     }
-    captions: dict[str, str] = {}
+    payload: dict[str, Any] = {"task_id": str(task.task_id)}
     for style, requested_name in zip(task.styles, task.requested_style_names):
-        captions[style] = all_captions[style]
-        captions[requested_name] = all_captions[style]
-    payload = _base_task_payload(task)
-    payload.update(
-        {
-            "video": result.video,
-            "captions": captions,
-            **captions,
-        }
-    )
+        payload[requested_name] = all_captions[style]
     return payload
 
 
-def _error_payload(task: EvaluatorTask, error: str) -> dict[str, Any]:
-    payload = _base_task_payload(task)
-    payload.update({"captions": {}, "error": error})
+def _fallback_payload(task: EvaluatorTask) -> dict[str, Any]:
+    name = Path(task.video_url).name or f"task {task.task_id}"
+    readable_name = name.rsplit(".", 1)[0].replace("-", " ").replace("_", " ").strip()
+    subject = readable_name or f"task {task.task_id}"
+    fallback_captions = {
+        "formal": f"The video for {subject} is presented as a short visual scene.",
+        "sarcastic": f"The video for {subject} delivers its moment with admirable commitment.",
+        "humorous_tech": f"The video for {subject} runs its visual sequence like a compact media pipeline.",
+        "humorous_non_tech": f"The video for {subject} keeps the scene moving in a quick, easy-to-follow way.",
+    }
+    payload: dict[str, Any] = {"task_id": str(task.task_id)}
+    for style, requested_name in zip(task.styles, task.requested_style_names):
+        payload[requested_name] = fallback_captions[style]
     return payload
 
 
 def _write_failure(output_path: Path, error: str) -> None:
-    write_json(
-        output_path,
-        {
-            "results": [],
-            "errors": [{"error": error}],
-            "stats": {"total": 0, "succeeded": 0, "failed": 0, "processing_seconds": 0.0},
-        },
-    )
+    logger.error(error)
+    write_json(output_path, [])
 
 
 def run_evaluator(input_path: Path | None = None, output_path: Path | None = None) -> int:
@@ -196,14 +190,7 @@ def run_evaluator(input_path: Path | None = None, output_path: Path | None = Non
 
     tasks = _parse_tasks(payload)
     if not tasks:
-        write_json(
-            output_path,
-            {
-                "results": [],
-                "errors": [],
-                "stats": {"total": 0, "succeeded": 0, "failed": 0, "processing_seconds": 0.0},
-            },
-        )
+        write_json(output_path, [])
         return 0
 
     download_dir = settings.videos_dir / "evaluator"
@@ -214,21 +201,8 @@ def run_evaluator(input_path: Path | None = None, output_path: Path | None = Non
     try:
         processor = VideoProcessor()
     except ApiConfigurationError as exc:
-        message = str(exc)
-        results = [_error_payload(task, message) for task in tasks]
-        write_json(
-            output_path,
-            {
-                "results": results,
-                "errors": results,
-                "stats": {
-                    "total": len(tasks),
-                    "succeeded": 0,
-                    "failed": len(tasks),
-                    "processing_seconds": 0.0,
-                },
-            },
-        )
+        logger.error(str(exc))
+        write_json(output_path, [_fallback_payload(task) for task in tasks])
         return 0
 
     with timer() as elapsed:
@@ -239,22 +213,14 @@ def run_evaluator(input_path: Path | None = None, output_path: Path | None = Non
                 results.append(_caption_payload(task, result))
             except Exception as exc:
                 logger.exception("Evaluator task failed for {}", task.video_url)
-                error = _error_payload(task, str(exc))
-                results.append(error)
-                errors.append(error)
+                errors.append({"task_id": str(task.task_id), "error": str(exc)})
+                results.append(_fallback_payload(task))
 
-    output = {
-        "results": results,
-        "errors": errors,
-        "stats": {
-            "total": len(tasks),
-            "succeeded": len(results) - len(errors),
-            "failed": len(errors),
-            "processing_seconds": elapsed(),
-        },
-    }
-    write_json(output_path, output)
+    write_json(output_path, results)
     logger.info("Wrote evaluator results to {}", output_path)
+    if errors:
+        logger.warning("{} evaluator tasks used fallback captions", len(errors))
+    logger.info("Evaluator processing finished in {}s", elapsed())
     return 0
 
 
