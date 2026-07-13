@@ -56,7 +56,7 @@ For batches with multiple URLs, URL downloads run concurrently up to
 Build from the project root:
 
 ```bash
-docker build -t elsondocker16/video-caption:latest .
+docker build -t 22102005/video-caption:evaluator-20260713 .
 ```
 
 Run the FastAPI backend with environment variables:
@@ -68,7 +68,20 @@ docker run --rm \
   -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
   -e VISION_MODEL="$VISION_MODEL" \
   -e TEXT_MODEL="$TEXT_MODEL" \
-  elsondocker16/video-caption:latest
+  22102005/video-caption:evaluator-20260713 api
+```
+
+Run evaluator mode with mounted evaluator folders:
+
+```bash
+docker run --rm \
+  -e API_KEY="$API_KEY" \
+  -e API_BASE_URL="https://api.fireworks.ai/inference/v1" \
+  -e VISION_MODEL="$VISION_MODEL" \
+  -e TEXT_MODEL="$TEXT_MODEL" \
+  -v "$(pwd)/input:/input:ro" \
+  -v "$(pwd)/output:/output" \
+  22102005/video-caption:evaluator-20260713
 ```
 
 Run batch mode with mounted folders:
@@ -81,10 +94,10 @@ docker run --rm \
   -e TEXT_MODEL="$TEXT_MODEL" \
   -v "$(pwd)/backend/videos:/app/videos" \
   -v "$(pwd)/backend/outputs:/app/outputs" \
-  elsondocker16/video-caption:latest batch
+  22102005/video-caption:evaluator-20260713 batch
 ```
 
-The default Docker command starts `uvicorn api:app` on `${PORT:-8000}` for Render. The `batch` command runs `python app.py` and writes batch output JSON to `/app/outputs/captions.json`.
+The default Docker command runs evaluator mode. It reads `${TASK_INPUT_PATH:-/input/tasks.json}`, writes `/output/results.json`, and exits. The `api` command starts `uvicorn api:app` on `${PORT:-8000}` for Render. The `batch` command runs `python app.py` and writes batch output JSON to `/app/outputs/captions.json`.
 
 ## Run API for the Frontend
 
